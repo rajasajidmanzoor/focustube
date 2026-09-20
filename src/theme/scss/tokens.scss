@@ -1,0 +1,44 @@
+// Re-exposes every design token through the ICSS `:export` convention so
+// scripts/build-theme.js can compile this file and lift the values into
+// TypeScript (src/theme/tokens.generated.ts). Do not import this file directly
+// from app code — import `src/theme/theme.ts` instead.
+
+@use 'variables' as v;
+
+:export {
+  colorBackground: v.$color-background;
+  colorSurface: v.$color-surface;
+  colorSurfaceElevated: v.$color-surface-elevated;
+  colorBorder: v.$color-border;
+  colorSelected: v.$color-selected;
+
+  colorText: v.$color-text;
+  colorTextSecondary: v.$color-text-secondary;
+  colorTextDisabled: v.$color-text-disabled;
+
+  colorAccent: v.$color-accent;
+  colorAccentPressed: v.$color-accent-pressed;
+
+  colorSuccess: v.$color-success;
+  colorError: v.$color-error;
+  colorOverlay: v.$color-overlay;
+
+  spacingHalf: v.$spacing-half;
+  spacingOne: v.$spacing-one;
+  spacingTwo: v.$spacing-two;
+  spacingThree: v.$spacing-three;
+  spacingFour: v.$spacing-four;
+  spacingFive: v.$spacing-five;
+  spacingSix: v.$spacing-six;
+
+  radiusSmall: v.$radius-small;
+  radiusMedium: v.$radius-medium;
+  radiusLarge: v.$radius-large;
+  radiusPill: v.$radius-pill;
+
+  fontSizeCaption: v.$font-size-caption;
+  fontSizeBody: v.$font-size-body;
+  fontSizeSubtitle: v.$font-size-subtitle;
+  fontSizeTitle: v.$font-size-title;
+  fontSizeHeading: v.$font-size-heading;
+}

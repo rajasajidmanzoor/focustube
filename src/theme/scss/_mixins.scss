@@ -1,0 +1,25 @@
+// Reusable SCSS mixins for FocusTube design tokens.
+// Not consumed at runtime today (React Native styling is StyleSheet.create, generated
+// from tokens.scss — see scripts/build-theme.js), but kept alongside the tokens so any
+// future web/CSS-module surface shares the same source of truth instead of redefining
+// these rules ad hoc.
+
+@use 'variables' as v;
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin truncate-lines($lines: 1) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@mixin card-surface {
+  background-color: v.$color-surface;
+  border-radius: #{v.$radius-medium}px;
+}

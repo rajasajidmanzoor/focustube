@@ -30,7 +30,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (never commit the real YouTube API key — see .env.example)
+.env
 .env*.local
 
 # typescript

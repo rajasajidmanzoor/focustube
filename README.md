@@ -1,6 +1,11 @@
-# Welcome to your Expo app 👋
+# FocusTube
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A personal-use, distraction-free YouTube viewer for Android. FocusTube only ever shows
+videos from YouTube channels you explicitly add to a local whitelist — no search, no
+recommendations, no comments, no "trending", nothing outside what you approved.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for how the app is structured and
+[TODO.md](./TODO.md) for the V1 implementation plan/status.
 
 ## Get started
 
@@ -10,47 +15,32 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Provide a YouTube Data API v3 key
 
    ```bash
-   npx expo start
+   cp .env.example .env
+   # then edit .env and set EXPO_PUBLIC_YOUTUBE_API_KEY
    ```
 
-In the output, you'll find options to open the app in a
+   `.env` is gitignored — never commit a real key. Get a key from the
+   [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with the
+   YouTube Data API v3 enabled.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+3. Start the app
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+   ```bash
+   npm run android
+   ```
 
-## Get a fresh project
+   (`npm start` also works if you want to choose a target from the Expo CLI menu.)
 
-When you're ready, run:
+## Project scope (V1)
 
-```bash
-npm run reset-project
-```
+- Home feed and Shorts feed — whitelisted channels only
+- Channels management (add/remove)
+- Local watch history
+- Settings
+- Dark UI, embedded YouTube playback
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+No search, no recommendations, no comments, no likes, no sharing, no subscribe
+controls — see ARCHITECTURE.md for why.
