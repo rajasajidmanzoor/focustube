@@ -1,4 +1,8 @@
-// YouTube Data API v3 client — channel resolution, uploads/playlist listing, video
-// detail batching. Read-only metadata calls only; no scraping, no download/caching of
-// audiovisual content. Populated in TODO.md Phase 1.
-export {};
+export { getChannelsMetaById, getChannelUploadsPlaylist, resolveChannel } from './channels';
+export type { ResolvedChannel } from './channels';
+export { getPlaylistVideoRefs } from './playlists';
+export type { PlaylistVideoRef } from './playlists';
+export { getApprovedChannelFeed, getChannelVideos, getVideosByIds } from './videos';
+export { clearYouTubeApiCache } from './cache';
+export { getYouTubeApiKey, isYouTubeApiConfigured, YouTubeApiError } from './youtubeApi';
+export type { YouTubeApiErrorKind } from './youtubeApi';

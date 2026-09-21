@@ -18,8 +18,21 @@ export function ChannelListItem({ channel, onRemove }: Props) {
       <ChannelAvatar uri={channel.thumbnailUrl} size={44} />
       <View style={styles.textColumn}>
         <ThemedText numberOfLines={1}>{channel.title}</ThemedText>
+        <View style={styles.metaRow}>
+          {channel.handle && (
+            <ThemedText type="caption" color="textSecondary" numberOfLines={1}>
+              {channel.handle}
+            </ThemedText>
+          )}
+          <View style={styles.activeBadge}>
+            <View style={styles.activeDot} />
+            <ThemedText type="caption" color="textSecondary">
+              Active
+            </ThemedText>
+          </View>
+        </View>
         <ThemedText type="caption" color="textSecondary">
-          Added {formatRelativeTime(channel.addedAt)}
+          {channel.lastSyncedAt ? `Synced ${formatRelativeTime(channel.lastSyncedAt)}` : 'Not synced yet'}
         </ThemedText>
       </View>
       <IconButton
@@ -45,5 +58,21 @@ const styles = StyleSheet.create({
   textColumn: {
     flex: 1,
     gap: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.success,
   },
 });

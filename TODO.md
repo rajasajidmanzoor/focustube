@@ -3,7 +3,7 @@
 Status legend: `[x]` done, `[ ]` not started. See [ARCHITECTURE.md](./ARCHITECTURE.md) for
 the reasoning behind each layer.
 
-## Phase 0 — Project scaffold (this step)
+## Phase 0 — Project scaffold
 
 - [x] Inspect existing Expo project (SDK 57, expo-router, `src/app` root).
 - [x] Write ARCHITECTURE.md and TODO.md.
@@ -14,145 +14,176 @@ the reasoning behind each layer.
 - [x] SCSS → generated TS theme token pipeline (`src/theme`, `scripts/build-theme.js`).
 - [x] Base navigation: stable `Tabs` (Home / Shorts / Channels / Settings) + a
       `video/[videoId]` detail route, dark theme applied.
-- [x] Placeholder screens for all four tabs + video player route.
-- [x] Remove starter-template demo code that doesn't fit FocusTube (animated splash
-      icon, hint rows, web badge, light/dark scheme switching).
+- [x] Remove starter-template demo code that doesn't fit FocusTube.
 - [x] Verify `npx expo start` / `npx expo export` succeed.
 
-## Phase 0.5 — V1 application shell (mock data)
+## Phase 0.5 — V1 application shell
 
-Built the full UI shell for Home, Shorts, Channels, Settings, and the video player
-route against realistic mock data (`src/services/youtube/mockData.ts`), so Phase 1
-only has to swap the data source, not the UI. Real network calls, persistence, and
-zustand stores are still Phase 1–3.
+Built with mock data first, then fully rewired to the real pipeline in later phases —
+no mock data remains in the app (`src/services/youtube/mockData.ts` and
+`useMockVideoFeed.ts` were deleted once Home/Shorts/Channels all moved to real data).
 
-- [x] Reusable `LoadingState` / `EmptyState` / `ErrorState` components, used
-      consistently across Home/Shorts/Channels.
-- [x] `AppHeader` (title + optional right-side action) on Home/Channels/Settings;
-      omitted on Shorts for a full-bleed immersive feed.
-- [x] Home: scrolling `VideoCard` feed (thumbnail, duration badge, title, channel
-      avatar/name, relative publish date), pull-to-refresh, tap → player.
-- [x] Shorts: `FlatList` with `pagingEnabled` + measured container height for
-      one-short-at-a-time vertical paging; no comments/share/like affordances.
-- [x] Channels: list with avatar/title/added-date, add via modal (`AddChannelModal`),
-      remove via confirm `Alert` + swipe-free trash button.
-- [x] Settings: Shorts on/off, refresh interval (15/30/60m chips), dark-theme row
-      (locked on — see ARCHITECTURE.md dark-only decision), clear cache / clear watch
-      history (confirm `Alert`, no-op against real data yet).
-- [x] Video player route: mock-data-driven title/channel/thumbnail with a play-icon
-      overlay — NOT yet the real WebView embed (still Phase 7).
-- [x] `npx tsc --noEmit` and `npx expo lint` clean; `npx expo export --platform
-      android` and `npx expo start` verified.
+- [x] Reusable `LoadingState` / `EmptyState` / `ErrorState` components.
+- [x] `AppHeader` on Home/Channels/Settings; omitted on Shorts for a full-bleed feed.
 
-Mock hooks (`useHomeFeed`, `useShortsFeed`, `useChannels`, `useSettings` in
-`src/hooks/`) simulate network latency so the loading state is always visible briefly;
-the error-state branch is wired into every screen but isn't reachable with the current
-always-succeeding mock data — it will start firing naturally once Phase 1 makes real
-network calls.
+## Phase 1 — YouTube API service layer ✅
 
-## Phase 1 — YouTube API service layer
+- [x] `src/types/youtube.ts` — DTOs for `channels`, `playlistItems`, `videos` (only
+      the fields FocusTube reads).
+- [x] `src/constants/api.ts` — base URL, part params, page/batch size limits, cache TTL.
+- [x] `src/services/youtube/youtubeApi.ts` — fetch wrapper, `getYouTubeApiKey()` /
+      `isYouTubeApiConfigured()` config validation, `YouTubeApiError` (kinds: config,
+      network, quota, not_found, http, malformed_response), `chunkArray`,
+      `pickThumbnailUrl`.
+- [x] `src/services/youtube/cache.ts` — in-memory session TTL cache (avoids redundant
+      calls; durable caching is SQLite, see Phase 2).
+- [x] `src/services/youtube/channels.ts` — `resolveChannel(input)` (URL/@handle/ID/
+      legacy username, via `channels.list` only — never `search.list`),
+      `getChannelUploadsPlaylist(channelId)`, `getChannelsMetaById(ids)` (batched, ≤50
+      ids per call).
+- [x] `src/services/youtube/playlists.ts` — `getPlaylistVideoRefs(playlistId,
+      maxResults)`, paginated via `nextPageToken`, capped at `maxResults`.
+- [x] `src/services/youtube/videos.ts` — `getVideosByIds` (batched, ≤50 ids/call),
+      `getChannelVideos(channelId)`, `getApprovedChannelFeed(channelIds)` (merge +
+      dedupe + sort, direct-from-API view — the app's actual feed is SQLite-backed,
+      see Phase 5/6).
+- [x] `src/utils/duration.ts` — `parseIso8601Duration`, `classifyShort` (single
+      source of truth for the ≤60s Shorts heuristic — never duplicated elsewhere).
+- [x] `src/utils/parseChannelInput.ts` — URL/@handle/ID/username parsing.
+- [x] Tested against the **live** YouTube Data API (handle resolution, full-URL
+      resolution, `/channel/UC…` resolution, video fetch + correct Shorts
+      classification, not-found and empty-input errors) and against **mocked**
+      failure responses (quota exceeded, network failure, malformed JSON, missing API
+      key) — all produced the correct `YouTubeApiError.kind` and a friendly message.
 
-- [ ] `src/types/youtube.ts` — DTOs for `channels`, `playlistItems`, `videos` API
-      responses (only the fields we use).
-- [ ] `src/constants/api.ts` — base URL, endpoint paths, part params.
-- [ ] `src/services/youtube/client.ts` — fetch wrapper, injects API key, error
-      normalization (network error vs. quota/4xx vs. not-found).
-- [ ] `src/services/youtube/channels.ts` — resolve a channel by handle/URL/ID, return
-      `{ id, title, thumbnailUrl, uploadsPlaylistId }`.
-- [ ] `src/services/youtube/videos.ts` — list uploads for a playlist, batch-fetch video
-      details (duration, thumbnails, stats), map to domain `Video` type.
-- [ ] `src/utils/duration.ts` — parse ISO-8601 duration, `isShort(durationSeconds)`
-      heuristic (≤ 60s).
-- [ ] `src/utils/channelInput.ts` — parse a pasted channel URL/handle into whatever
-      `channels.list` needs.
+## Phase 2 — Local persistence (SQLite) ✅ (channels + videos only)
 
-## Phase 2 — Local persistence (SQLite)
+- [x] `src/services/database/db.ts` — lazy `openDatabaseAsync` + migration
+      (`channels`, `videos` tables; no `watch_history`/`settings` tables yet — not
+      needed until Phase 8/9).
+- [x] `src/services/database/channelsRepository.ts` — `listChannels`,
+      `getChannelById`, `isChannelAdded`, `addChannel`, `removeChannel`,
+      `markChannelSynced`.
+- [x] `src/services/database/videosRepository.ts` — `listCachedFeed(filter)`
+      (`all`/`long_form`/`shorts`, `INNER JOIN` against `channels`),
+      `getCachedVideoById`, `upsertChannelVideos` (upsert, not delete-then-insert).
+- [x] `src/types/db.ts` — row types.
+- [x] Design decision: removing a channel `DELETE`s the channel row only. Its cached
+      video rows are deliberately left untouched (never cascade-deleted) — they just
+      stop being selectable because every feed query `INNER JOIN`s against
+      `channels`. See db.ts/videosRepository.ts comments.
 
-- [ ] `src/services/database/db.ts` — open/init the `expo-sqlite` database.
-- [ ] `src/services/database/migrations.ts` — create `channels`, `watch_history`,
-      `settings` tables (see ARCHITECTURE.md schema).
-- [ ] `src/services/database/channelsRepository.ts` — list/add/remove whitelist rows.
-- [ ] `src/services/database/watchHistoryRepository.ts` — add/list/clear history.
-- [ ] `src/services/database/settingsRepository.ts` — get/set key-value settings.
-- [ ] `src/types/db.ts` — row types matching the schema.
+## Phase 3 — State stores (zustand) — channels + feed + settings done; watch history not started
 
-## Phase 3 — State stores (zustand)
+- [x] `src/store/channelsStore.ts` — whitelist state, `previewChannel` (resolve +
+      duplicate check, no write), `confirmChannel` (save + initial sync),
+      `removeChannel`.
+- [x] `src/store/feedStore.ts` — **one shared store** for both Home and Shorts (holds
+      all cached videos; each screen filters client-side) — cached-first load,
+      staleness-aware background refresh, force-refresh for pull-to-refresh,
+      in-flight guard so Home/Shorts never double-sync.
+- [x] `src/store/sync.ts` — `syncChannel(channelId)`: the one place that bridges
+      services/youtube + services/database (fetch → upsert → mark synced).
+- [x] `src/store/settingsStore.ts` — `shortsEnabled`, `refreshIntervalMinutes` (local
+      only — not yet persisted, see Phase 9).
+- [ ] `src/store/watchHistoryStore.ts` — not started (Phase 8).
+- [x] Matching `src/hooks/use*.ts` wrappers exposed to screens.
 
-- [ ] `src/store/channelsStore.ts` — whitelist state + CRUD actions.
-- [ ] `src/store/feedStore.ts` — Home (long-form) feed aggregation + refresh.
-- [ ] `src/store/shortsStore.ts` — Shorts feed aggregation + refresh.
-- [ ] `src/store/watchHistoryStore.ts` — history state + actions.
-- [ ] `src/store/settingsStore.ts` — settings state + actions.
-- [ ] Matching `src/hooks/use*.ts` wrappers exposed to screens.
+## Phase 4 — Channels management screen ✅
 
-## Phase 4 — Channels management screen
+- [x] Add Channel is a 2-step modal (`add-channel-modal.tsx`): input → resolve via
+      real YouTube API → confirmation preview (thumbnail, name, handle) → confirm →
+      save to SQLite → initial sync → return to Channels screen.
+- [x] Duplicate prevention (`channelsStore.previewChannel` checks the current
+      whitelist before allowing confirm).
+- [x] Friendly, non-technical errors for not-found and quota-exceeded
+      (`toFriendlyChannelError`) — never a raw status code or quota reason string.
+- [x] Channels screen displays thumbnail, name, handle (if available), last-synced
+      time, and an "Active" status badge.
+- [x] Remove via trash-icon button + confirm `Alert`.
+- [x] Removed channels never reappear in Home/Shorts (INNER JOIN, see Phase 2); their
+      cached videos are left in place per the repository design above.
 
-UI shipped in Phase 0.5 against mock data; remaining work is wiring it to real data:
+## Phase 5 — Home feed ✅
 
-- [ ] Add-channel input resolves against the real YouTube Data API (currently accepts
-      any non-empty text as a mock channel).
-- [x] Channel list with remove action (with confirmation).
-- [x] Loading/error/empty states.
-- [ ] Persist the whitelist via `channelsRepository` (SQLite) instead of component
-      state.
-- [ ] Removing a channel purges its videos from any in-memory feed immediately.
-
-## Phase 5 — Home feed
-
-UI shipped in Phase 0.5 against mock data; remaining work is wiring it to real data:
-
-- [ ] Aggregate long-form uploads across all whitelisted channels via the real YouTube
-      API, sorted by publish date.
-- [x] Pull-to-refresh.
-- [x] Loading/error/empty states (empty = "no channels added yet" CTA to Channels tab).
+- [x] Pipeline: approved active channels → YouTube API → normalized videos → SQLite
+      upsert → shared feedStore → Home screen.
+- [x] Only active (currently-whitelisted) channels ever appear.
+- [x] Newest videos first (`ORDER BY published_at DESC`).
+- [x] Deduplicated structurally (`videos.id` is a SQLite primary key).
+- [x] Pull-to-refresh (force-syncs every channel).
+- [x] Cached content shown immediately; background sync only for stale channels
+      (per the settings refresh interval) — avoids unnecessary API calls.
+- [x] Distinct states: first-launch loading, no-channels empty, channels-but-no-videos
+      empty (with a syncing variant), friendly network/quota error with retry.
 - [x] Tapping a video navigates to `video/[videoId]`.
 
-## Phase 6 — Shorts feed
+## Phase 6 — Shorts feed ✅
 
-UI shipped in Phase 0.5 against mock data; remaining work is wiring it to real data:
+- [x] Same shared feedStore as Home, filtered to `isShort` — no separate sync, so
+      opening both tabs never double-fetches the same channels.
+- [x] Full-screen vertical `FlatList` (`pagingEnabled`, measured container height,
+      snap-to-interval).
+- [x] Displays title, channel name, channel thumbnail; no comments/share/like/
+      subscribe UI.
+- [x] Nearby-item thumbnail prefetching via `onViewableItemsChanged` +
+      `Image.prefetch` (all metadata is already in memory from SQLite — only the
+      thumbnail image bytes benefit from prefetching).
+- [x] Respects the Shorts-enabled setting: tab is hidden from the bar (`href: null`)
+      and the screen shows an explanatory state if reached directly.
+- [x] Loading/empty (no channels vs. no Shorts yet)/error+retry states.
+- [x] Tapping a Short opens the same real player as Home (see Phase 7) — deliberately
+      not an inline autoplaying card, since the product rule against covering/
+      replacing YouTube's own controls rules out a custom overlaid Shorts player.
 
-- [ ] Same aggregation as Home, filtered to `isShort` videos, via the real YouTube API.
-- [x] Vertical/full-screen paginated layout.
-- [x] Loading/error/empty states.
+## Phase 7 — Video player screen ✅
 
-## Phase 7 — Video player screen
-
-- [ ] `video/[videoId].tsx` — replace the current thumbnail-with-play-icon mock with a
-      WebView loading the official YouTube embed
-      (`https://www.youtube.com/embed/<id>`), default player controls untouched, no
-      overlay views.
-- [ ] Record a watch-history entry on open.
+- [x] `src/components/youtube-player.tsx` — real `react-native-webview` embed of
+      `https://www.youtube.com/embed/<id>`. No overlay, no autoplay
+      (`mediaPlaybackRequiresUserAction`), default controls untouched.
+- [x] `video/[videoId].tsx` looks up the video from SQLite (`getCachedVideoById`) and
+      renders the real player + title/channel/relative-publish-date.
 - [x] Back navigation returns to the originating feed (native stack back gesture).
+- [ ] Record a watch-history entry on open — not started (Phase 8; no
+      `watch_history` table yet).
 
-## Phase 8 — Watch history
+## Phase 8 — Watch history — not started
 
-- [ ] Surface recent history (likely on Settings or a dedicated section) with clear
-      option.
-- [ ] No re-fetching of video content — history stores metadata captured at watch time.
+- [ ] `watch_history` table + repository.
+- [ ] Record an entry when the player screen opens.
+- [ ] Surface recent history with a clear option (Settings' "Clear watch history" is
+      currently a no-op confirmation dialog, since there's nothing to clear yet).
 
-## Phase 9 — Settings screen
+## Phase 9 — Settings screen — UI + Shorts/refresh-interval live; rest not started
 
-UI shipped in Phase 0.5 (Shorts toggle, refresh interval, dark-theme row, clear
-cache/history) against local component state; remaining work is wiring it to real
-data:
-
-- [ ] Persist settings via `settingsRepository` (SQLite) instead of component state.
-- [ ] Clear cache / clear watch history actually clear stored data (currently a no-op
-      confirmation dialog).
-- [ ] Show API key configuration status (configured / missing) without ever
-      displaying the key value.
+- [x] Shorts on/off — live, actually gates the Shorts tab and feed (Phase 6).
+- [x] Refresh interval (15/30/60m) — live, actually read by feedStore's staleness
+      check (Phase 5/6).
+- [x] Clear cache — live, clears the real in-session YouTube lookup cache
+      (`clearYouTubeApiCache`).
+- [ ] Settings persistence (SQLite `settings` table) — currently zustand-only, resets
+      on app restart.
+- [ ] Clear watch history — no-op until Phase 8 exists.
+- [ ] Show API key configuration status (configured/missing), never the key value —
+      `isYouTubeApiConfigured()` already exists in services/youtube for this.
 - [ ] App info (version, purpose statement, compliance notes).
 
 ## Phase 10 — Polish
 
-- [ ] Consistent loading/error/empty state components reused across Home/Shorts/
+- [x] Consistent loading/error/empty state components reused across Home/Shorts/
       Channels.
-- [ ] Pull-to-refresh consistency.
-- [ ] Dark theme visual pass (spacing, typography rhythm) using `src/theme` tokens.
+- [x] Pull-to-refresh consistency (Home; Shorts intentionally omits pull-to-refresh
+      to avoid fighting the vertical paging gesture — relies on the shared
+      background sync + Retry instead).
+- [ ] Further dark theme visual pass.
 
-## Phase 11 — Android build
+## Phase 11 — Android build — not started
 
 - [ ] `eas.json` build profile for an installable Android APK.
-- [ ] Confirm `.env` / `EXPO_PUBLIC_YOUTUBE_API_KEY` handling works through EAS builds
-      (EAS secret or local `.env`, never committed).
+- [ ] Confirm `EXPO_PUBLIC_YOUTUBE_API_KEY` handling works through EAS builds (EAS
+      secret, never committed).
 - [ ] Produce and sideload a test APK.
+- [ ] Manual on-device verification of vertical Shorts paging, WebView playback, and
+      SQLite persistence across app restarts — not yet done; this sandbox has no
+      Android SDK/emulator, so only `npx expo export --platform android` (bundle
+      compiles, all native modules resolve) has been verified so far.

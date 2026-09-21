@@ -14,13 +14,8 @@ import { Spacing } from '@/theme';
 import type { Channel } from '@/types';
 
 export function ChannelsScreen() {
-  const { state, addChannel, removeChannel, refetch } = useChannels();
+  const { state, previewChannel, confirmChannel, removeChannel, refetch } = useChannels();
   const [modalVisible, setModalVisible] = useState(false);
-
-  const handleAdd = (name: string) => {
-    addChannel(name);
-    setModalVisible(false);
-  };
 
   const handleRemove = (channel: Channel) => {
     Alert.alert('Remove channel?', `${channel.title} will be removed from your whitelist.`, [
@@ -56,7 +51,12 @@ export function ChannelsScreen() {
         />
       )}
 
-      <AddChannelModal visible={modalVisible} onClose={() => setModalVisible(false)} onSubmit={handleAdd} />
+      <AddChannelModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        previewChannel={previewChannel}
+        confirmChannel={confirmChannel}
+      />
     </ThemedView>
   );
 }

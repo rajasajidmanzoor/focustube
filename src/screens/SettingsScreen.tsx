@@ -6,15 +6,23 @@ import { SettingsSection } from '@/components/settings-section';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSettings } from '@/hooks';
+import { clearWatchHistory } from '@/services/database';
+import { clearYouTubeApiCache } from '@/services/youtube';
 import { Colors, Radii, Spacing } from '@/theme';
 import type { RefreshIntervalMinutes } from '@/types';
 
 const REFRESH_OPTIONS: RefreshIntervalMinutes[] = [15, 30, 60];
 
-function confirmClear(title: string, message: string, confirmedMessage: string) {
+function confirmClear(title: string, message: string, onConfirm: () => void | Promise<void>, confirmedMessage: string) {
   Alert.alert(title, message, [
     { text: 'Cancel', style: 'cancel' },
-    { text: 'Clear', style: 'destructive', onPress: () => Alert.alert('Done', confirmedMessage) },
+    {
+      text: 'Clear',
+      style: 'destructive',
+      onPress: () => {
+        void Promise.resolve(onConfirm()).then(() => Alert.alert('Done', confirmedMessage));
+      },
+    },
   ]);
 }
 
@@ -83,7 +91,14 @@ export function SettingsScreen() {
             description="Remove locally cached video metadata."
             control={
               <Pressable
-                onPress={() => confirmClear('Clear cache?', 'This removes locally cached video metadata.', 'Cache cleared.')}
+                onPress={() =>
+                  confirmClear(
+                    'Clear cache?',
+                    'This clears the in-session YouTube lookup cache (not your saved channels).',
+                    clearYouTubeApiCache,
+                    'Cache cleared.',
+                  )
+                }
                 style={styles.destructiveButton}>
                 <ThemedText color="error">Clear</ThemedText>
               </Pressable>
@@ -96,7 +111,12 @@ export function SettingsScreen() {
             control={
               <Pressable
                 onPress={() =>
-                  confirmClear('Clear watch history?', 'This removes all recorded watch history.', 'Watch history cleared.')
+                  confirmClear(
+                    'Clear watch history?',
+                    'This removes all recorded watch history.',
+                    clearWatchHistory,
+                    'Watch history cleared.',
+                  )
                 }
                 style={styles.destructiveButton}>
                 <ThemedText color="error">Clear</ThemedText>

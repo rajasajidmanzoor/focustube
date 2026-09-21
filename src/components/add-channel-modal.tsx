@@ -1,60 +1,158 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { ChannelAvatar } from '@/components/channel-avatar';
 import { ThemedText } from '@/components/themed-text';
+import { toFriendlyChannelError, type ResolvedChannel } from '@/hooks';
 import { Colors, Radii, Spacing } from '@/theme';
+
+type Step = 'input' | 'preview' | 'saving';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (value: string) => void;
+  previewChannel: (input: string) => Promise<ResolvedChannel>;
+  confirmChannel: (preview: ResolvedChannel) => Promise<void>;
 };
 
-export function AddChannelModal({ visible, onClose, onSubmit }: Props) {
-  const [value, setValue] = useState('');
+export function AddChannelModal({ visible, onClose, previewChannel, confirmChannel }: Props) {
+  const [step, setStep] = useState<Step>('input');
+  const [inputValue, setInputValue] = useState('');
+  const [preview, setPreview] = useState<ResolvedChannel | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
 
-  const handleSubmit = () => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    onSubmit(trimmed);
-    setValue('');
+  const reset = () => {
+    setStep('input');
+    setInputValue('');
+    setPreview(null);
+    setError(null);
+    setIsResolving(false);
   };
 
   const handleClose = () => {
-    setValue('');
+    reset();
     onClose();
+  };
+
+  const handleResolve = async () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+
+    setError(null);
+    setIsResolving(true);
+    try {
+      const resolved = await previewChannel(trimmed);
+      setPreview(resolved);
+      setStep('preview');
+    } catch (err) {
+      setError(toFriendlyChannelError(err));
+    } finally {
+      setIsResolving(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!preview) return;
+
+    setError(null);
+    setStep('saving');
+    try {
+      await confirmChannel(preview);
+      reset();
+      onClose();
+    } catch (err) {
+      setError(toFriendlyChannelError(err));
+      setStep('preview');
+    }
+  };
+
+  const handleBack = () => {
+    setStep('input');
+    setError(null);
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <ThemedText type="subtitle">Add channel</ThemedText>
-          <ThemedText type="caption" color="textSecondary" style={styles.hint}>
-            Paste a channel URL, @handle, or name.
-          </ThemedText>
-          <TextInput
-            value={value}
-            onChangeText={setValue}
-            placeholder="e.g. @somechannel"
-            placeholderTextColor={Colors.textDisabled}
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoFocus
-            onSubmitEditing={handleSubmit}
-          />
-          <View style={styles.actions}>
-            <Pressable onPress={handleClose} style={styles.secondaryButton}>
-              <ThemedText color="textSecondary">Cancel</ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={handleSubmit}
-              disabled={!value.trim()}
-              style={[styles.primaryButton, !value.trim() && styles.disabled]}>
-              <ThemedText style={styles.primaryButtonText}>Add</ThemedText>
-            </Pressable>
-          </View>
+          {step === 'input' ? (
+            <>
+              <ThemedText type="subtitle">Add YouTube Channel</ThemedText>
+              <ThemedText type="caption" color="textSecondary" style={styles.hint}>
+                YouTube channel URL or @handle
+              </ThemedText>
+              <TextInput
+                value={inputValue}
+                onChangeText={setInputValue}
+                placeholder="e.g. @somechannel"
+                placeholderTextColor={Colors.textDisabled}
+                style={styles.input}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoFocus
+                editable={!isResolving}
+                onSubmitEditing={handleResolve}
+              />
+              {error && (
+                <ThemedText color="error" style={styles.errorText}>
+                  {error}
+                </ThemedText>
+              )}
+              <View style={styles.actions}>
+                <Pressable onPress={handleClose} style={styles.secondaryButton} disabled={isResolving}>
+                  <ThemedText color="textSecondary">Cancel</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={handleResolve}
+                  disabled={!inputValue.trim() || isResolving}
+                  style={[styles.primaryButton, (!inputValue.trim() || isResolving) && styles.disabled]}>
+                  {isResolving ? (
+                    <ActivityIndicator color={Colors.text} size="small" />
+                  ) : (
+                    <ThemedText style={styles.primaryButtonText}>Add Channel</ThemedText>
+                  )}
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            preview && (
+              <>
+                <ThemedText type="subtitle">Confirm channel</ThemedText>
+                <View style={styles.previewRow}>
+                  <ChannelAvatar uri={preview.thumbnailUrl} size={56} />
+                  <View style={styles.previewTextColumn}>
+                    <ThemedText numberOfLines={1}>{preview.title}</ThemedText>
+                    {preview.handle && (
+                      <ThemedText type="caption" color="textSecondary">
+                        {preview.handle}
+                      </ThemedText>
+                    )}
+                  </View>
+                </View>
+                {error && (
+                  <ThemedText color="error" style={styles.errorText}>
+                    {error}
+                  </ThemedText>
+                )}
+                <View style={styles.actions}>
+                  <Pressable onPress={handleBack} style={styles.secondaryButton} disabled={step === 'saving'}>
+                    <ThemedText color="textSecondary">Back</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleConfirm}
+                    disabled={step === 'saving'}
+                    style={[styles.primaryButton, step === 'saving' && styles.disabled]}>
+                    {step === 'saving' ? (
+                      <ActivityIndicator color={Colors.text} size="small" />
+                    ) : (
+                      <ThemedText style={styles.primaryButtonText}>Confirm</ThemedText>
+                    )}
+                  </Pressable>
+                </View>
+              </>
+            )
+          )}
         </View>
       </View>
     </Modal>
@@ -85,6 +183,19 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 16,
   },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    marginTop: Spacing.two,
+  },
+  previewTextColumn: {
+    flex: 1,
+    gap: 2,
+  },
+  errorText: {
+    marginTop: Spacing.two,
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -102,6 +213,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.four,
     justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 96,
   },
   primaryButtonText: {
     fontWeight: '600',

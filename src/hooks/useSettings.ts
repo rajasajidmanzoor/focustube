@@ -1,23 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useSettingsStore } from '@/store';
 
-import type { AppSettings, RefreshIntervalMinutes } from '@/types';
-
-const defaultSettings: AppSettings = {
-  shortsEnabled: true,
-  refreshIntervalMinutes: 30,
-};
-
-/** Local-only settings state (TODO.md Phase 2/3 will persist these via expo-sqlite). */
+/** Thin wrapper around settingsStore, kept so screens read a plain `settings` object
+ * instead of selecting each field individually. */
 export function useSettings() {
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const shortsEnabled = useSettingsStore((store) => store.shortsEnabled);
+  const refreshIntervalMinutes = useSettingsStore((store) => store.refreshIntervalMinutes);
+  const setShortsEnabled = useSettingsStore((store) => store.setShortsEnabled);
+  const setRefreshInterval = useSettingsStore((store) => store.setRefreshInterval);
 
-  const setShortsEnabled = useCallback((shortsEnabled: boolean) => {
-    setSettings((prev) => ({ ...prev, shortsEnabled }));
-  }, []);
-
-  const setRefreshInterval = useCallback((refreshIntervalMinutes: RefreshIntervalMinutes) => {
-    setSettings((prev) => ({ ...prev, refreshIntervalMinutes }));
-  }, []);
-
-  return { settings, setShortsEnabled, setRefreshInterval };
+  return { settings: { shortsEnabled, refreshIntervalMinutes }, setShortsEnabled, setRefreshInterval };
 }

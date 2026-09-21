@@ -1,50 +1,30 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
-import { mockChannels } from '@/services/youtube/mockData';
-import type { AsyncState, Channel } from '@/types';
+import { toFriendlyChannelError, useChannelsStore, type ResolvedChannel } from '@/store';
 
-const DELAY_MS = 400;
+export type { ResolvedChannel };
 
-/** Mock whitelist CRUD — local component state only, no persistence yet (TODO.md
- * Phase 2/3 will move this to expo-sqlite + zustand). */
+/** Thin wrapper around channelsStore for screens — see store/channelsStore.ts for the
+ * actual resolve/save/sync workflow. */
 export function useChannels() {
-  const [state, setState] = useState<AsyncState<Channel[]>>({ status: 'loading' });
+  const state = useChannelsStore((store) => store.state);
+  const load = useChannelsStore((store) => store.load);
+  const previewChannel = useChannelsStore((store) => store.previewChannel);
+  const confirmChannel = useChannelsStore((store) => store.confirmChannel);
+  const removeChannel = useChannelsStore((store) => store.removeChannel);
 
-  // Starts the timer only — does not set state synchronously, so it's safe to call
-  // directly from the mount effect (react-hooks/set-state-in-effect).
-  const fetchChannels = useCallback(() => {
-    const timer = setTimeout(() => {
-      setState({ status: 'success', data: mockChannels.slice() });
-    }, DELAY_MS);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => fetchChannels(), [fetchChannels]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const refetch = useCallback(() => {
-    setState({ status: 'loading' });
-    fetchChannels();
-  }, [fetchChannels]);
+    void load();
+  }, [load]);
 
-  const addChannel = useCallback((name: string) => {
-    setState((prev) => {
-      if (prev.status !== 'success') return prev;
-      const newChannel: Channel = {
-        id: `mock-${Date.now()}`,
-        title: name,
-        thumbnailUrl: `https://picsum.photos/seed/${encodeURIComponent(name)}/200/200`,
-        addedAt: new Date().toISOString(),
-      };
-      return { status: 'success', data: [newChannel, ...prev.data] };
-    });
-  }, []);
-
-  const removeChannel = useCallback((id: string) => {
-    setState((prev) => {
-      if (prev.status !== 'success') return prev;
-      return { status: 'success', data: prev.data.filter((channel) => channel.id !== id) };
-    });
-  }, []);
-
-  return { state, addChannel, removeChannel, refetch };
+  return { state, previewChannel, confirmChannel, removeChannel, refetch };
 }
+
+export { toFriendlyChannelError };
