@@ -6,12 +6,17 @@ import { SettingsSection } from '@/components/settings-section';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSettings } from '@/hooks';
-import { clearWatchHistory } from '@/services/database';
+import { clearAllCachedVideos, clearWatchHistory } from '@/services/database';
 import { clearYouTubeApiCache } from '@/services/youtube';
 import { Colors, Radii, Spacing } from '@/theme';
-import type { RefreshIntervalMinutes } from '@/types';
+import type { MaxShortsPerSession, RefreshIntervalMinutes } from '@/types';
 
 const REFRESH_OPTIONS: RefreshIntervalMinutes[] = [15, 30, 60];
+const MAX_SHORTS_OPTIONS: MaxShortsPerSession[] = ['unlimited', 5, 10, 20, 50, 100];
+
+function maxShortsLabel(value: MaxShortsPerSession): string {
+  return value === 'unlimited' ? 'Unlimited' : String(value);
+}
 
 function confirmClear(title: string, message: string, onConfirm: () => void | Promise<void>, confirmedMessage: string) {
   Alert.alert(title, message, [
@@ -27,7 +32,12 @@ function confirmClear(title: string, message: string, onConfirm: () => void | Pr
 }
 
 export function SettingsScreen() {
-  const { settings, setShortsEnabled, setRefreshInterval } = useSettings();
+  const { settings, setHideShorts, setRefreshInterval, setMaxShortsPerSession } = useSettings();
+
+  const clearCachedVideos = async () => {
+    await clearAllCachedVideos();
+    clearYouTubeApiCache();
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -35,16 +45,37 @@ export function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <SettingsSection title="Playback">
           <SettingsRow
-            label="Shorts"
-            description="Show the Shorts tab and include short-form videos."
-            last
+            label="Hide Shorts"
+            description="Hide the Shorts tab and short-form videos entirely."
             control={
               <Switch
-                value={settings.shortsEnabled}
-                onValueChange={setShortsEnabled}
+                value={settings.hideShorts}
+                onValueChange={setHideShorts}
                 trackColor={{ false: Colors.selected, true: Colors.accent }}
                 thumbColor={Colors.text}
               />
+            }
+          />
+          <SettingsRow
+            label="Maximum Shorts per session"
+            description="Stop and ask before showing more Shorts in one sitting."
+            last
+            control={
+              <View style={styles.chipWrap}>
+                {MAX_SHORTS_OPTIONS.map((option) => {
+                  const selected = settings.maxShortsPerSession === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      onPress={() => setMaxShortsPerSession(option)}
+                      style={[styles.chip, selected && styles.chipSelected]}>
+                      <ThemedText type="caption" color={selected ? 'text' : 'textSecondary'}>
+                        {maxShortsLabel(option)}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
             }
           />
         </SettingsSection>
@@ -87,16 +118,16 @@ export function SettingsScreen() {
 
         <SettingsSection title="Data">
           <SettingsRow
-            label="Clear cache"
-            description="Remove locally cached video metadata."
+            label="Clear cached videos"
+            description="Removes cached video metadata only. Your approved channels, settings, and watch history are kept."
             control={
               <Pressable
                 onPress={() =>
                   confirmClear(
-                    'Clear cache?',
-                    'This clears the in-session YouTube lookup cache (not your saved channels).',
-                    clearYouTubeApiCache,
-                    'Cache cleared.',
+                    'Clear cached videos?',
+                    'Clear cached video metadata?',
+                    clearCachedVideos,
+                    'Cached video metadata cleared.',
                   )
                 }
                 style={styles.destructiveButton}>
@@ -139,6 +170,13 @@ const styles = StyleSheet.create({
   chipRow: {
     flexDirection: 'row',
     gap: Spacing.two,
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'flex-end',
+    maxWidth: 200,
   },
   chip: {
     paddingHorizontal: Spacing.three,

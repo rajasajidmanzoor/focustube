@@ -7,6 +7,14 @@ import type { AsyncState, Channel, Video } from '@/types';
 import { useSettingsStore } from './settingsStore';
 import { syncChannel } from './sync';
 
+/** Pull-to-refresh always intends to hit the API ("subject to API limits" — see
+ * store/feedStore.ts refresh()), but rapid repeated pulls (someone yanking the list
+ * over and over) shouldn't turn into repeated API calls for data that can't have
+ * changed yet. This is a floor, not the normal staleness window (refreshIntervalMinutes
+ * handles that for background refreshes). */
+const MIN_FORCE_REFRESH_COOLDOWN_MS = 10000;
+let lastForceRefreshCompletedAt = 0;
+
 function isStale(channel: Channel, refreshIntervalMinutes: number): boolean {
   if (!channel.lastSyncedAt) return true;
   const ageMs = Date.now() - new Date(channel.lastSyncedAt).getTime();
@@ -22,6 +30,18 @@ function friendlySyncError(error: unknown): string {
   return 'Could not refresh your feed.';
 }
 
+/** "Last updated" = the most recent successful per-channel sync. Shown in the UI so
+ * cached-but-possibly-stale content is never presented as if it were live. */
+function computeLastUpdatedAt(channels: Channel[]): string | null {
+  let latest: string | null = null;
+  for (const channel of channels) {
+    if (channel.lastSyncedAt && (!latest || channel.lastSyncedAt > latest)) {
+      latest = channel.lastSyncedAt;
+    }
+  }
+  return latest;
+}
+
 type FeedStoreState = {
   /** Every cached video (long-form AND Shorts) across active channels, newest first.
    * Home and Shorts both read this one store and filter client-side by `isShort` —
@@ -32,6 +52,8 @@ type FeedStoreState = {
    * `state.status === 'loading'`, which only covers the very first cache read. */
   isSyncing: boolean;
   hasChannels: boolean;
+  /** Most recent successful sync across all channels, or null if never synced. */
+  lastUpdatedAt: string | null;
 };
 
 type FeedStoreActions = {
@@ -41,7 +63,8 @@ type FeedStoreActions = {
    * since it never resets `state` to 'loading' once there's already data, so it
    * never flashes a spinner over content that's already on screen. */
   init: () => Promise<void>;
-  /** `force: true` (pull-to-refresh) syncs every channel regardless of staleness.
+  /** `force: true` (pull-to-refresh) syncs every channel regardless of staleness,
+   * subject to a short cooldown so rapid repeated pulls don't hammer the API.
    * `force: false` only syncs channels past the settings refresh interval — this is
    * what keeps FocusTube from making unnecessary API requests. */
   refresh: (force: boolean) => Promise<void>;
@@ -56,11 +79,16 @@ export const useFeedStore = create<FeedStoreState & FeedStoreActions>((set, get)
   state: { status: 'loading' },
   isSyncing: false,
   hasChannels: false,
+  lastUpdatedAt: null,
 
   init: async () => {
     try {
       const { videos, channels } = await readCache();
-      set({ state: { status: 'success', data: videos }, hasChannels: channels.length > 0 });
+      set({
+        state: { status: 'success', data: videos },
+        hasChannels: channels.length > 0,
+        lastUpdatedAt: computeLastUpdatedAt(channels),
+      });
     } catch {
       // Keep whatever's already on screen rather than clobbering good cached data
       // with an error just because a routine focus-revalidation's read failed.
@@ -78,6 +106,10 @@ export const useFeedStore = create<FeedStoreState & FeedStoreActions>((set, get)
     // second concurrent sync of the same channels rather than doubling API calls.
     if (get().isSyncing) return;
 
+    if (force && Date.now() - lastForceRefreshCompletedAt < MIN_FORCE_REFRESH_COOLDOWN_MS) {
+      return;
+    }
+
     let channels: Channel[];
     try {
       channels = await listChannels();
@@ -86,7 +118,7 @@ export const useFeedStore = create<FeedStoreState & FeedStoreActions>((set, get)
     }
 
     if (channels.length === 0) {
-      set({ state: { status: 'success', data: [] }, hasChannels: false });
+      set({ state: { status: 'success', data: [] }, hasChannels: false, lastUpdatedAt: null });
       return;
     }
 
@@ -98,10 +130,11 @@ export const useFeedStore = create<FeedStoreState & FeedStoreActions>((set, get)
 
     set({ isSyncing: true });
     const results = await Promise.allSettled(targets.map((channel) => syncChannel(channel.id)));
+    if (force) lastForceRefreshCompletedAt = Date.now();
     const allFailed = results.length > 0 && results.every((result) => result.status === 'rejected');
 
     try {
-      const videos = await listCachedFeed('all');
+      const [videos, freshChannels] = await Promise.all([listCachedFeed('all'), listChannels()]);
 
       if (videos.length === 0 && allFailed) {
         const firstFailure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
@@ -113,7 +146,12 @@ export const useFeedStore = create<FeedStoreState & FeedStoreActions>((set, get)
         return;
       }
 
-      set({ state: { status: 'success', data: videos }, isSyncing: false, hasChannels: true });
+      set({
+        state: { status: 'success', data: videos },
+        isSyncing: false,
+        hasChannels: true,
+        lastUpdatedAt: computeLastUpdatedAt(freshChannels),
+      });
     } catch {
       set({ isSyncing: false });
     }

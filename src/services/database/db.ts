@@ -52,6 +52,13 @@ async function migrate(database: SQLite.SQLiteDatabase): Promise<void> {
     );
 
     CREATE INDEX IF NOT EXISTS idx_watch_history_watched_at ON watch_history (watched_at);
+
+    -- Simple key/value settings store (values JSON-encoded). Cleared only when a
+    -- setting is explicitly reset — never touched by "Clear cached videos".
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
   `);
 }
 

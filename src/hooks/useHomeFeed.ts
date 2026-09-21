@@ -15,6 +15,7 @@ export function useHomeFeed() {
   const rawState = useFeedStore((store) => store.state);
   const hasChannels = useFeedStore((store) => store.hasChannels);
   const isSyncing = useFeedStore((store) => store.isSyncing);
+  const lastUpdatedAt = useFeedStore((store) => store.lastUpdatedAt);
   const init = useFeedStore((store) => store.init);
   const refreshAction = useFeedStore((store) => store.refresh);
 
@@ -44,5 +45,5 @@ export function useHomeFeed() {
     void init();
   }, [init]);
 
-  return { state, refreshing, refetch, refresh, hasChannels, isSyncing };
+  return { state, refreshing, refetch, refresh, hasChannels, isSyncing, lastUpdatedAt };
 }

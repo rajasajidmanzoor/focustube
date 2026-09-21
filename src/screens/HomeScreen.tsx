@@ -5,18 +5,20 @@ import { AppHeader } from '@/components/app-header';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { LoadingState } from '@/components/loading-state';
+import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { VideoCard } from '@/components/video-card';
 import { useHomeFeed } from '@/hooks';
 import { Colors, Spacing } from '@/theme';
 import type { Video } from '@/types';
+import { formatRelativeTime } from '@/utils';
 
 function openVideo(video: Video) {
   router.push({ pathname: '/video/[videoId]', params: { videoId: video.id } });
 }
 
 export function HomeScreen() {
-  const { state, refreshing, refetch, refresh, hasChannels, isSyncing } = useHomeFeed();
+  const { state, refreshing, refetch, refresh, hasChannels, isSyncing, lastUpdatedAt } = useHomeFeed();
 
   return (
     <ThemedView style={styles.container}>
@@ -52,6 +54,13 @@ export function HomeScreen() {
           data={state.data}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <VideoCard video={item} onPress={openVideo} />}
+          ListHeaderComponent={
+            lastUpdatedAt ? (
+              <ThemedText type="caption" color="textSecondary" style={styles.lastUpdated}>
+                Updated {formatRelativeTime(lastUpdatedAt)}
+              </ThemedText>
+            ) : null
+          }
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Colors.accent} />}
         />
@@ -67,5 +76,8 @@ const styles = StyleSheet.create({
   list: {
     padding: Spacing.three,
     paddingBottom: Spacing.six,
+  },
+  lastUpdated: {
+    marginBottom: Spacing.three,
   },
 });

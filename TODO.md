@@ -56,24 +56,26 @@ no mock data remains in the app (`src/services/youtube/mockData.ts` and
       failure responses (quota exceeded, network failure, malformed JSON, missing API
       key) — all produced the correct `YouTubeApiError.kind` and a friendly message.
 
-## Phase 2 — Local persistence (SQLite) ✅ (channels + videos only)
+## Phase 2 — Local persistence (SQLite) ✅
 
 - [x] `src/services/database/db.ts` — lazy `openDatabaseAsync` + migration
-      (`channels`, `videos` tables; no `watch_history`/`settings` tables yet — not
-      needed until Phase 8/9).
+      (`channels`, `videos`, `watch_history`, `settings` tables).
+- [x] `src/services/database/settingsRepository.ts` — generic JSON-encoded
+      `getSetting`/`setSetting` key-value store, backing `store/settingsStore.ts`.
 - [x] `src/services/database/channelsRepository.ts` — `listChannels`,
       `getChannelById`, `isChannelAdded`, `addChannel`, `removeChannel`,
       `markChannelSynced`.
 - [x] `src/services/database/videosRepository.ts` — `listCachedFeed(filter)`
       (`all`/`long_form`/`shorts`, `INNER JOIN` against `channels`),
       `getCachedVideoById`, `upsertChannelVideos` (upsert, not delete-then-insert).
+- [x] `src/services/database/watchHistoryRepository.ts` — see Phase 8.
 - [x] `src/types/db.ts` — row types.
 - [x] Design decision: removing a channel `DELETE`s the channel row only. Its cached
       video rows are deliberately left untouched (never cascade-deleted) — they just
       stop being selectable because every feed query `INNER JOIN`s against
       `channels`. See db.ts/videosRepository.ts comments.
 
-## Phase 3 — State stores (zustand) — channels + feed + settings done; watch history not started
+## Phase 3 — State stores (zustand) ✅
 
 - [x] `src/store/channelsStore.ts` — whitelist state, `previewChannel` (resolve +
       duplicate check, no write), `confirmChannel` (save + initial sync),
@@ -86,7 +88,9 @@ no mock data remains in the app (`src/services/youtube/mockData.ts` and
       services/youtube + services/database (fetch → upsert → mark synced).
 - [x] `src/store/settingsStore.ts` — `shortsEnabled`, `refreshIntervalMinutes` (local
       only — not yet persisted, see Phase 9).
-- [ ] `src/store/watchHistoryStore.ts` — not started (Phase 8).
+- [x] Watch history has no separate store — `useWatchProgress` (Phase 8) calls
+      `watchHistoryRepository` directly, since nothing else needs to read that state
+      reactively yet. Worth promoting to a store if/when a history screen is built.
 - [x] Matching `src/hooks/use*.ts` wrappers exposed to screens.
 
 ## Phase 4 — Channels management screen ✅
@@ -136,34 +140,69 @@ no mock data remains in the app (`src/services/youtube/mockData.ts` and
       not an inline autoplaying card, since the product rule against covering/
       replacing YouTube's own controls rules out a custom overlaid Shorts player.
 
-## Phase 7 — Video player screen ✅
+## Phase 7 — Video player screen ✅ (code complete; playback unverified on this emulator)
 
-- [x] `src/components/youtube-player.tsx` — real `react-native-webview` embed of
-      `https://www.youtube.com/embed/<id>`. No overlay, no autoplay
-      (`mediaPlaybackRequiresUserAction`), default controls untouched.
-- [x] `video/[videoId].tsx` looks up the video from SQLite (`getCachedVideoById`) and
-      renders the real player + title/channel/relative-publish-date.
+- [x] `src/components/youtube-player.tsx` — real YouTube IFrame Player API (the
+      currently-supported embedded playback mechanism), loaded via
+      `react-native-webview` with `baseUrl: 'https://www.youtube.com'` (required —
+      without it the player rejects playback with its own "configuration error"
+      screen) and a standard Chrome Mobile user agent (avoids WebView-specific
+      restrictions some Google services apply to the default embedded-WebView UA).
+      No overlay, no autoplay (`mediaPlaybackRequiresUserAction={false}` only
+      permits it, doesn't trigger it — nothing sets `autoplay: 1`), default controls
+      untouched; YouTube's own error screens (e.g. "This video is unavailable") are
+      left to render through unmodified rather than being covered by our UI.
+- [x] `video/[videoId].tsx` looks up the video from SQLite (`getCachedVideoById`),
+      distinguishes not-found vs. a genuine lookup failure (retryable `ErrorState`),
+      and renders the real player + title/channel/relative-publish-date.
+- [x] `src/hooks/useWatchProgress.ts` + `watchHistoryRepository.ts` (`watch_history`
+      table exists) — records a watch session on first `playing` state, throttles
+      progress writes to every 5s, marks `completed` on `ended`.
 - [x] Back navigation returns to the originating feed (native stack back gesture).
-- [ ] Record a watch-history entry on open — not started (Phase 8; no
-      `watch_history` table yet).
+- [x] Handles invalid video ID (not-found state), network/lookup failure (retryable
+      error state), and player load failure (WebView nav error + a 15s no-`onReady`
+      timeout), each with its own `ErrorState`/retry.
 
-## Phase 8 — Watch history — not started
+**Known issue — not an app bug**: on the Android emulator used for on-device testing
+(Pixel 7a AVD, x86_64, `google_apis_playstore` system image), every video fails with
+YouTube's own "Error code: 152" inside the player. Diagnosed with instrumented
+logging (temporarily added, then removed) showing the full JS/page layer succeeds —
+origin is correct, the IFrame API script loads, `YT.Player` constructs, and `onReady`
+fires — and the failure happens deterministically ~0ms after `onReady`, before any
+user interaction, right at video/stream negotiation. A direct EME probe
+(`navigator.requestMediaKeySystemAccess('com.widevine.alpha', …)`) showed Widevine is
+present and its CDM actively initializes (real `WVCdm`/`DrmUtils` logs, L3 software
+level) but the promise never resolves or rejects — the CDM negotiation itself hangs.
+This matches a known, documented category of issue with Widevine's software CDM
+specifically on **x86_64** Android emulator images (the CDM binaries are frequently
+ARM-oriented and behave unreliably under x86_64 emulation), separate from "emulators
+have no DRM at all." The same video opened directly in the emulator's own full Chrome
+browser also hung indefinitely, confirming it's environmental, not
+WebView-configuration-specific.
+Next step to actually confirm playback: test on a physical Android device, or an
+ARM64 emulator image if the host supports one.
 
-- [ ] `watch_history` table + repository.
-- [ ] Record an entry when the player screen opens.
-- [ ] Surface recent history with a clear option (Settings' "Clear watch history" is
-      currently a no-op confirmation dialog, since there's nothing to clear yet).
+## Phase 8 — Watch history ✅ (recording done; no dedicated history screen yet)
 
-## Phase 9 — Settings screen — UI + Shorts/refresh-interval live; rest not started
+- [x] `watch_history` table (`services/database/db.ts`) + repository
+      (`watchHistoryRepository.ts`: `recordWatchStart`, `updateWatchProgress`,
+      `markWatchCompleted`, `listWatchHistory`, `clearWatchHistory`).
+- [x] Record an entry when the player screen opens (`useWatchProgress` hook, wired
+      into `VideoPlayerScreen`).
+- [x] Settings' "Clear watch history" now actually clears it (`clearWatchHistory`).
+- [ ] A dedicated screen/section to browse recent history — not built yet;
+      `listWatchHistory()` is ready for one.
+
+## Phase 9 — Settings screen — Shorts/refresh-interval/clear-cache/clear-history live; rest not started
 
 - [x] Shorts on/off — live, actually gates the Shorts tab and feed (Phase 6).
 - [x] Refresh interval (15/30/60m) — live, actually read by feedStore's staleness
       check (Phase 5/6).
 - [x] Clear cache — live, clears the real in-session YouTube lookup cache
       (`clearYouTubeApiCache`).
+- [x] Clear watch history — live (see Phase 8).
 - [ ] Settings persistence (SQLite `settings` table) — currently zustand-only, resets
       on app restart.
-- [ ] Clear watch history — no-op until Phase 8 exists.
 - [ ] Show API key configuration status (configured/missing), never the key value —
       `isYouTubeApiConfigured()` already exists in services/youtube for this.
 - [ ] App info (version, purpose statement, compliance notes).
@@ -183,7 +222,46 @@ no mock data remains in the app (`src/services/youtube/mockData.ts` and
 - [ ] Confirm `EXPO_PUBLIC_YOUTUBE_API_KEY` handling works through EAS builds (EAS
       secret, never committed).
 - [ ] Produce and sideload a test APK.
-- [ ] Manual on-device verification of vertical Shorts paging, WebView playback, and
-      SQLite persistence across app restarts — not yet done; this sandbox has no
-      Android SDK/emulator, so only `npx expo export --platform android` (bundle
-      compiles, all native modules resolve) has been verified so far.
+- [x] Manual on-device verification via an Android emulator (Pixel 7a AVD) of: full
+      Add Channel workflow against the live API, SQLite persistence across app
+      restarts, Home/Shorts pipeline, Settings (Hide Shorts, session limit,
+      confirmations), and the video player (see Phase 7's Widevine finding for the
+      one unresolved item — needs a physical device).
+
+## Phase 12 — Distraction-control rules & robust caching ✅
+
+Both were already true structurally (no search/trending/recommendations/etc. exist —
+they were simply never built, and every feed query is scoped to the `channels`
+table), but this phase added the pieces that needed real logic:
+
+- [x] After a video ends, FocusTube never lets YouTube's own "up next" endscreen
+      linger — `VideoPlayerScreen` navigates back to the originating feed the instant
+      `onStateChange` reports `'ended'` (`router.back()`, falling back to `/` if
+      there's no back history).
+- [x] "Hide Shorts" setting (renamed from the earlier "Shorts enabled" toggle),
+      **default true** — Shorts starts hidden (tab + feed) until the user opts in.
+- [x] "Maximum Shorts per session" (Unlimited/5/10/20/50/100, default Unlimited) —
+      `ShortsScreen` truncates the paginated list at the limit and appends a
+      `ShortsLimitCard` sentinel item ("You've reached your Shorts limit." / "Back to
+      Videos" / "Continue Anyway") so the next swipe lands on it naturally, no scroll
+      hijacking required. "Continue Anyway" lifts the cap for the rest of that Shorts
+      tab visit (resets on remount — a "session").
+- [x] Both settings (plus `refreshIntervalMinutes`) persist to the new `settings`
+      SQLite table via `settingsStore.hydrate()` (called once from the root layout)
+      and per-setter writes.
+- [x] Cache cap: `MAX_UPLOADS_PER_CHANNEL` raised to the spec'd 50 and now doubles as
+      the SQLite retention cap — `videosRepository.pruneChannelVideos` deletes rows
+      beyond the newest 50 per channel after every sync, so the cache can't grow
+      unbounded.
+- [x] "Last updated" indicator on Home (`Updated 5 minutes ago`, from the most recent
+      per-channel `last_synced_at`).
+- [x] Pull-to-refresh cooldown (10s) so rapid repeated pulls can't turn into repeated
+      API calls — "subject to API limits."
+- [x] Settings → "Clear cached videos" (`videosRepository.clearAllCachedVideos`),
+      confirmation text exactly "Clear cached video metadata?" — clears only the
+      `videos` table (+ the in-memory YouTube lookup cache); channels, settings, and
+      watch history are untouched.
+- [x] Verified on-device: Hide Shorts toggle immediately shows/hides the tab; Home's
+      "Updated N minutes ago" renders; Maximum Shorts per session chips select
+      correctly; hitting the limit shows the interstitial with working Back to
+      Videos / Continue Anyway.

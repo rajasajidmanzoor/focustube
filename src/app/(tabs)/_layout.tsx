@@ -5,7 +5,7 @@ import { useSettingsStore } from '@/store';
 import { Colors } from '@/theme';
 
 export default function TabsLayout() {
-  const shortsEnabled = useSettingsStore((store) => store.shortsEnabled);
+  const hideShorts = useSettingsStore((store) => store.hideShorts);
 
   return (
     <Tabs
@@ -30,9 +30,9 @@ export default function TabsLayout() {
         options={{
           title: 'Shorts',
           tabBarIcon: ({ color, size }) => <Ionicons name="flash" color={color} size={size} />,
-          // Hides the tab (not just disables it) when the user turns Shorts off in
-          // Settings, per the "Shorts enabled" setting's own description.
-          href: shortsEnabled ? undefined : null,
+          // Hides the tab (not just disables it) when "Hide Shorts" is on in
+          // Settings — default true, so Shorts starts hidden until the user opts in.
+          href: hideShorts ? null : undefined,
         }}
       />
       <Tabs.Screen

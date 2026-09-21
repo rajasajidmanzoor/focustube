@@ -4,12 +4,13 @@ export const YOUTUBE_CHANNEL_PARTS = 'snippet,contentDetails';
 export const YOUTUBE_PLAYLIST_ITEM_PARTS = 'snippet';
 export const YOUTUBE_VIDEO_PARTS = 'snippet,contentDetails';
 
-/** Videos fetched per channel on a sync — keeps quota/data usage bounded. */
-export const MAX_UPLOADS_PER_CHANNEL = 15;
+/** Videos fetched — and kept cached — per channel. Both the sync fetch size and the
+ * SQLite cache cap (see videosRepository.pruneChannelVideos) use this same number,
+ * so the cache never holds more than what a fresh sync would fetch anyway. */
+export const MAX_UPLOADS_PER_CHANNEL = 50;
 
-/** YouTube's playlistItems.list page size cap is 50; we default lower since
- * MAX_UPLOADS_PER_CHANNEL is usually well under one page anyway. */
-export const PLAYLIST_ITEMS_PAGE_SIZE = 25;
+/** YouTube's playlistItems.list page size cap is 50 per request. */
+export const PLAYLIST_ITEMS_PAGE_SIZE = 50;
 
 /** videos.list accepts at most 50 comma-separated ids per request. */
 export const YOUTUBE_BATCH_ID_LIMIT = 50;

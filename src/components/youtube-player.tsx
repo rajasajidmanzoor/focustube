@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { ErrorState } from '@/components/error-state';
@@ -23,6 +23,14 @@ const UNAVAILABLE_ERROR_CODES = new Set([100, 101, 150]);
 
 const LOAD_TIMEOUT_MS = 15000;
 
+// Android's default WebView user agent identifies itself as an embedded WebView
+// (the "; wv)" token), and YouTube's player can reject or misbehave for that UA
+// (surfaces as an opaque "video unavailable" error) even though nothing else is
+// wrong. Presenting a standard Chrome Mobile UA avoids that — it changes nothing
+// about what's rendered, since the page loaded is still YouTube's own embed.
+const ANDROID_CHROME_USER_AGENT =
+  'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
+
 type PlayerMessage =
   | { type: 'ready' }
   | { type: 'error'; data: number }
@@ -41,10 +49,11 @@ type Props = {
  * (onReady/onStateChange/onError) to know when playback starts/progresses/ends.
  *
  * This never touches the player's DOM, CSS, or controls: everything the user sees
- * inside the WebView is YouTube's own unmodified UI. Our own loading/error views
- * only ever *replace* the WebView (before it's ready, or if it fails) — they never
- * render on top of it. No media is downloaded, extracted, or proxied; the WebView
- * simply loads a page that embeds YouTube's own player, exactly like a browser would.
+ * inside the WebView is YouTube's own unmodified UI, including its own error screens
+ * (e.g. "This video is unavailable") when something goes wrong on YouTube's side —
+ * we deliberately don't cover those with our own UI (see UNAVAILABLE_ERROR_CODES
+ * below). No media is downloaded, extracted, or proxied; the WebView simply loads a
+ * page that embeds YouTube's own player, exactly like a browser would.
  *
  * Kept isolated behind this component's props (videoId + a couple of callbacks) so
  * the underlying playback mechanism can be swapped later without touching any
@@ -78,8 +87,9 @@ export function YouTubePlayer({ videoId, onStateChange, onProgress }: Props) {
       } else if (message.type === 'error') {
         // Only "video unavailable" style errors (removed/private/embedding
         // disallowed) replace the whole player with our error state — other codes
-        // (e.g. a transient 2/5) aren't necessarily fatal, so we leave YouTube's own
-        // player showing whatever it renders for them.
+        // leave YouTube's own player showing whatever it renders for them (its own
+        // "video unavailable" screen, etc.), since `status` is already 'ready' by
+        // the time onError can fire and we never cover the WebView while it's up.
         if (UNAVAILABLE_ERROR_CODES.has(message.data)) {
           setStatus('error');
         }
@@ -108,12 +118,14 @@ export function YouTubePlayer({ videoId, onStateChange, onProgress }: Props) {
           <WebView
             key={reloadKey}
             // baseUrl matters: without a real https:// origin, YouTube's IFrame API
-            // rejects playback (its own "Error 153 / configuration error" screen) —
+            // rejects playback outright (its own "configuration error" screen) —
             // inline HTML otherwise loads with no usable origin for it to check.
             source={{ html, baseUrl: 'https://www.youtube.com' }}
             style={styles.webview}
             javaScriptEnabled
             domStorageEnabled
+            thirdPartyCookiesEnabled
+            userAgent={Platform.OS === 'android' ? ANDROID_CHROME_USER_AGENT : undefined}
             allowsFullscreenVideo
             allowsInlineMediaPlayback
             mediaPlaybackRequiresUserAction={false}
@@ -165,7 +177,7 @@ function buildPlayerHtml(videoId: string): string {
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         videoId: ${safeVideoId},
-        playerVars: { playsinline: 1 },
+        playerVars: { playsinline: 1, enablejsapi: 1, origin: 'https://www.youtube.com' },
         events: {
           onReady: function () {
             post('ready');

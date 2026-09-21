@@ -1,7 +1,7 @@
 export type { AsyncState } from './asyncState';
 export type { Channel } from './channel';
 export type { ChannelRow, VideoRow, VideoWithChannelRow, WatchHistoryRow } from './db';
-export type { AppSettings, RefreshIntervalMinutes } from './settings';
+export type { AppSettings, MaxShortsPerSession, RefreshIntervalMinutes } from './settings';
 export type { Video } from './video';
 export type { WatchHistoryEntry } from './watchHistory';
 export type {

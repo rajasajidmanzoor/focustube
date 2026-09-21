@@ -1,3 +1,4 @@
+import { MAX_UPLOADS_PER_CHANNEL } from '@/constants';
 import type { Video, VideoWithChannelRow } from '@/types';
 
 import { getDatabase } from './db';
@@ -83,4 +84,29 @@ export async function upsertChannelVideos(channelId: string, videos: Video[]): P
       );
     }
   });
+}
+
+/** Caps how many cached videos a single channel can keep (default: the same 50
+ * recent uploads a sync fetches — see MAX_UPLOADS_PER_CHANNEL) by deleting the
+ * oldest rows beyond that count. Without this, upsertChannelVideos alone would let
+ * a channel's row count grow forever, since upsert never removes anything on its
+ * own — each sync only re-affirms its own fetched batch. */
+export async function pruneChannelVideos(channelId: string, keep: number = MAX_UPLOADS_PER_CHANNEL): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync(
+    `DELETE FROM videos
+     WHERE channel_id = ?
+       AND id NOT IN (
+         SELECT id FROM videos WHERE channel_id = ? ORDER BY published_at DESC LIMIT ?
+       )`,
+    [channelId, channelId, keep],
+  );
+}
+
+/** "Clear cached videos" (Settings) — removes cached video metadata only. Channels,
+ * settings, and watch history are untouched; see channelsRepository/
+ * watchHistoryRepository/settingsRepository for those. */
+export async function clearAllCachedVideos(): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('DELETE FROM videos');
 }

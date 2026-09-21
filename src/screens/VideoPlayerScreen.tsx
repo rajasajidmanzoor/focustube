@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -8,7 +8,7 @@ import { ErrorState } from '@/components/error-state';
 import { LoadingState } from '@/components/loading-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { YouTubePlayer } from '@/components/youtube-player';
+import { YouTubePlayer, type YouTubePlayerState } from '@/components/youtube-player';
 import { useWatchProgress } from '@/hooks';
 import { getCachedVideoById } from '@/services/database';
 import { Spacing } from '@/theme';
@@ -52,7 +52,21 @@ export function VideoPlayerScreen() {
   }, [fetchVideo]);
 
   const video = lookup.status === 'success' ? lookup.video : null;
-  const { handleStateChange, handleProgress } = useWatchProgress(video);
+  const { handleStateChange: recordWatchStateChange, handleProgress } = useWatchProgress(video);
+
+  // FocusTube never shows recommended/unrelated content after a video ends — instead
+  // of leaving YouTube's own "up next" endscreen visible, return to the approved
+  // feed this video was opened from the moment playback finishes.
+  const handleStateChange = useCallback(
+    (state: YouTubePlayerState) => {
+      recordWatchStateChange(state);
+      if (state === 'ended') {
+        if (router.canGoBack()) router.back();
+        else router.replace('/');
+      }
+    },
+    [recordWatchStateChange],
+  );
 
   if (lookup.status === 'loading') {
     return (
