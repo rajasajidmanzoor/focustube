@@ -19,10 +19,18 @@ export function ShortsLimitCard({ height, onBackToVideos, onContinueAnyway }: Pr
         You&apos;ve reached your Shorts limit.
       </ThemedText>
       <View style={styles.actions}>
-        <Pressable onPress={onBackToVideos} style={styles.primaryButton}>
+        <Pressable
+          onPress={onBackToVideos}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Videos"
+          style={styles.primaryButton}>
           <ThemedText style={styles.primaryButtonText}>Back to Videos</ThemedText>
         </Pressable>
-        <Pressable onPress={onContinueAnyway} style={styles.secondaryButton}>
+        <Pressable
+          onPress={onContinueAnyway}
+          accessibilityRole="button"
+          accessibilityLabel="Continue Anyway"
+          style={styles.secondaryButton}>
           <ThemedText color="textSecondary">Continue Anyway</ThemedText>
         </Pressable>
       </View>

@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { ChannelAvatar } from '@/components/channel-avatar';
 import { IconButton } from '@/components/icon-button';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/theme';
+import { Colors, Radii, Spacing } from '@/theme';
 import type { Channel } from '@/types';
 import { formatRelativeTime } from '@/utils';
 
@@ -13,11 +13,15 @@ type Props = {
 };
 
 export function ChannelListItem({ channel, onRemove }: Props) {
+  const syncedLabel = channel.lastSyncedAt ? `Synced ${formatRelativeTime(channel.lastSyncedAt)}` : 'Not synced yet';
+
   return (
-    <View style={styles.row}>
-      <ChannelAvatar uri={channel.thumbnailUrl} size={44} />
+    <View style={styles.card}>
+      <ChannelAvatar uri={channel.thumbnailUrl} size={48} />
       <View style={styles.textColumn}>
-        <ThemedText numberOfLines={1}>{channel.title}</ThemedText>
+        <ThemedText type="subtitle" numberOfLines={1}>
+          {channel.title}
+        </ThemedText>
         <View style={styles.metaRow}>
           {channel.handle && (
             <ThemedText type="caption" color="textSecondary" numberOfLines={1}>
@@ -32,7 +36,7 @@ export function ChannelListItem({ channel, onRemove }: Props) {
           </View>
         </View>
         <ThemedText type="caption" color="textSecondary">
-          {channel.lastSyncedAt ? `Synced ${formatRelativeTime(channel.lastSyncedAt)}` : 'Not synced yet'}
+          {syncedLabel}
         </ThemedText>
       </View>
       <IconButton
@@ -46,18 +50,18 @@ export function ChannelListItem({ channel, onRemove }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
+    padding: Spacing.three,
+    marginBottom: Spacing.two,
+    borderRadius: Radii.large,
+    backgroundColor: Colors.surface,
   },
   textColumn: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   metaRow: {
     flexDirection: 'row',

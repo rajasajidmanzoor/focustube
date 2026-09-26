@@ -30,22 +30,25 @@ export function ThemedText({ style, type = 'default', color, ...rest }: ThemedTe
 const styles = StyleSheet.create({
   default: {
     fontSize: FontSizes.body,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   title: {
     fontSize: FontSizes.title,
     fontWeight: '700',
-    lineHeight: 26,
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
   heading: {
     fontSize: FontSizes.heading,
     fontWeight: '700',
-    lineHeight: 30,
+    lineHeight: 32,
+    letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: FontSizes.subtitle,
     fontWeight: '600',
-    lineHeight: 22,
+    lineHeight: 24,
+    letterSpacing: -0.2,
   },
   caption: {
     fontSize: FontSizes.caption,
@@ -58,7 +61,7 @@ const styles = StyleSheet.create({
   },
   link: {
     fontSize: FontSizes.body,
-    lineHeight: 20,
+    lineHeight: 22,
     color: Colors.accent,
   },
   code: {

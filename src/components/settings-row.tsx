@@ -11,13 +11,16 @@ type Props = {
   last?: boolean;
 };
 
+/** A native-Android-style settings row: full-width, screen-background, minimum
+ * 56dp-tall touch target, hairline divider between rows (not after the last one in
+ * a section). */
 export function SettingsRow({ label, description, control, last = false }: Props) {
   return (
     <View style={[styles.row, !last && styles.divider]}>
       <View style={styles.textColumn}>
         <ThemedText>{label}</ThemedText>
         {description && (
-          <ThemedText type="caption" color="textSecondary">
+          <ThemedText type="caption" color="textSecondary" style={styles.description}>
             {description}
           </ThemedText>
         )}
@@ -32,9 +35,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 56,
     paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    gap: Spacing.four,
   },
   divider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -43,5 +47,8 @@ const styles = StyleSheet.create({
   textColumn: {
     flex: 1,
     gap: 2,
+  },
+  description: {
+    marginTop: 1,
   },
 });

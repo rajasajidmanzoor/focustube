@@ -216,12 +216,23 @@ ARM64 emulator image if the host supports one.
       background sync + Retry instead).
 - [ ] Further dark theme visual pass.
 
-## Phase 11 — Android build — not started
+## Phase 11 — Android build ✅ (config complete; first real EAS build not yet run)
 
-- [ ] `eas.json` build profile for an installable Android APK.
-- [ ] Confirm `EXPO_PUBLIC_YOUTUBE_API_KEY` handling works through EAS builds (EAS
-      secret, never committed).
-- [ ] Produce and sideload a test APK.
+- [x] `app.json` configured for a real build: display name "FocusTube", package
+      `com.focustube.personal`, `versionCode` 1, dark-only adaptive icon background,
+      dark splash screen — see BUILD.md.
+- [x] `eas.json` with `development`/`preview`/`production` profiles, all
+      `android.buildType: "apk"` (never AAB), all `distribution: "internal"`, no
+      `submit` block anywhere — Google Play submission is not configured.
+      `expo-dev-client` installed for the `development` profile.
+- [x] Documented `EXPO_PUBLIC_YOUTUBE_API_KEY` handling through EAS builds (EAS
+      Environment Variables, never committed) — see BUILD.md.
+- [x] Configuration validation: `npx expo-doctor` — 21/21 checks passed.
+      `npx eas-cli config` requires an authenticated `eas login`, which isn't
+      available in this environment — documented as a required manual step before
+      the first real build.
+- [ ] Actually run `eas build --profile production` and sideload the result — not
+      done here (needs the user's own Expo account).
 - [x] Manual on-device verification via an Android emulator (Pixel 7a AVD) of: full
       Add Channel workflow against the live API, SQLite persistence across app
       restarts, Home/Shorts pipeline, Settings (Hide Shorts, session limit,

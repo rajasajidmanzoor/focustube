@@ -103,7 +103,7 @@ export function VideoPlayerScreen() {
       <View style={styles.info}>
         <ThemedText type="subtitle">{lookup.video.title}</ThemedText>
         <View style={styles.channelRow}>
-          <ChannelAvatar uri={lookup.video.channelThumbnailUrl} />
+          <ChannelAvatar uri={lookup.video.channelThumbnailUrl} size={40} />
           <View>
             <ThemedText>{lookup.video.channelName}</ThemedText>
             <ThemedText type="caption" color="textSecondary">

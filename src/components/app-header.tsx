@@ -14,7 +14,9 @@ export function AppHeader({ title, right }: Props) {
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <View style={styles.row}>
-        <ThemedText type="title">{title}</ThemedText>
+        <ThemedText type="title" accessibilityRole="header">
+          {title}
+        </ThemedText>
         {right}
       </View>
     </SafeAreaView>
@@ -31,7 +33,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     minHeight: 56,
   },

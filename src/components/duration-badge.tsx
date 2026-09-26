@@ -17,13 +17,14 @@ export function DurationBadge({ seconds }: Props) {
 const styles = StyleSheet.create({
   badge: {
     position: 'absolute',
-    right: Spacing.one,
-    bottom: Spacing.one,
+    right: Spacing.two,
+    bottom: Spacing.two,
     backgroundColor: Colors.overlay,
     color: Colors.text,
-    paddingHorizontal: Spacing.one,
-    paddingVertical: 2,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 3,
     borderRadius: Radii.small,
     overflow: 'hidden',
+    letterSpacing: 0.2,
   },
 });

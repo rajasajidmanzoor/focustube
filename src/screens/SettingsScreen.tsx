@@ -68,6 +68,9 @@ export function SettingsScreen() {
                     <Pressable
                       key={option}
                       onPress={() => setMaxShortsPerSession(option)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`Maximum Shorts per session: ${maxShortsLabel(option)}`}
                       style={[styles.chip, selected && styles.chipSelected]}>
                       <ThemedText type="caption" color={selected ? 'text' : 'textSecondary'}>
                         {maxShortsLabel(option)}
@@ -93,6 +96,9 @@ export function SettingsScreen() {
                     <Pressable
                       key={minutes}
                       onPress={() => setRefreshInterval(minutes)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`Refresh interval: ${minutes} minutes`}
                       style={[styles.chip, selected && styles.chipSelected]}>
                       <ThemedText type="caption" color={selected ? 'text' : 'textSecondary'}>
                         {minutes}m
@@ -130,6 +136,8 @@ export function SettingsScreen() {
                     'Cached video metadata cleared.',
                   )
                 }
+                accessibilityRole="button"
+                accessibilityLabel="Clear cached videos"
                 style={styles.destructiveButton}>
                 <ThemedText color="error">Clear</ThemedText>
               </Pressable>
@@ -149,6 +157,8 @@ export function SettingsScreen() {
                     'Watch history cleared.',
                   )
                 }
+                accessibilityRole="button"
+                accessibilityLabel="Clear watch history"
                 style={styles.destructiveButton}>
                 <ThemedText color="error">Clear</ThemedText>
               </Pressable>
@@ -180,7 +190,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.two,
     borderRadius: Radii.pill,
     backgroundColor: Colors.surfaceElevated,
   },
@@ -188,7 +198,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   destructiveButton: {
-    paddingVertical: Spacing.one,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
 });

@@ -3,16 +3,19 @@
 // Edit values here, then run `npm run theme:build` (or `npm start`, which runs it
 // automatically via the `prestart` hook).
 
-// Colors — dark, YouTube-like palette. FocusTube ships dark-only (no light theme).
-$color-background: #0f0f0f;
-$color-surface: #212121;
-$color-surface-elevated: #272727;
-$color-border: #303030;
-$color-selected: #3d3d3d;
+// Colors — true-black, "premium productivity tool" palette. Deliberately not
+// YouTube's #0F0F0F/#FF0000: true black reads more minimal/OLED-friendly, and a calm
+// blue accent (rather than red) reserves red for its universal destructive/error
+// meaning instead of the app's identity color. FocusTube ships dark-only.
+$color-background: #000000;
+$color-surface: #131316;
+$color-surface-elevated: #1c1c20;
+$color-border: #262629;
+$color-selected: #2a2a30;
 
-$color-text: #ffffff;
-$color-text-secondary: #aaaaaa;
-$color-text-disabled: #717171;
+$color-text: #f2f2f4;
+$color-text-secondary: #96969e;
+$color-text-disabled: #55555c;
 
 $color-accent: #ff0000;
 $color-accent-pressed: #cc0000;
@@ -20,7 +23,7 @@ $color-accent-pressed: #cc0000;
 $color-success: #2ba640;
 $color-error: #ff6b6b;
 
-$color-overlay: rgba(0, 0, 0, 0.55);
+$color-overlay: rgba(0, 0, 0, 0.68);
 
 // Spacing scale (unitless — treated as density-independent pixels in RN).
 $spacing-half: 2;
@@ -31,15 +34,16 @@ $spacing-four: 24;
 $spacing-five: 32;
 $spacing-six: 64;
 
-// Corner radii.
-$radius-small: 4;
-$radius-medium: 8;
-$radius-large: 12;
+// Corner radii — slightly larger than a typical system default reads more premium
+// (Apple TV / Arc-style), while staying well short of "excessive rounding."
+$radius-small: 6;
+$radius-medium: 10;
+$radius-large: 16;
 $radius-pill: 999;
 
-// Type scale.
+// Type scale — sized for comfortable long-session reading, not just compact density.
 $font-size-caption: 12;
-$font-size-body: 14;
-$font-size-subtitle: 16;
-$font-size-title: 20;
-$font-size-heading: 24;
+$font-size-body: 15;
+$font-size-subtitle: 17;
+$font-size-title: 22;
+$font-size-heading: 26;

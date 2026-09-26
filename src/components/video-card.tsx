@@ -15,19 +15,23 @@ type Props = {
 
 export function VideoCard({ video, onPress }: Props) {
   return (
-    <Pressable onPress={() => onPress(video)} style={({ pressed }) => [styles.container, pressed && styles.pressed]}>
+    <Pressable
+      onPress={() => onPress(video)}
+      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={`${video.title}, ${video.channelName}, ${formatRelativeTime(video.publishedAt)}`}>
       <View style={styles.thumbnailWrapper}>
-        <Image source={{ uri: video.thumbnailUrl }} style={styles.thumbnail} contentFit="cover" transition={150} />
+        <Image source={{ uri: video.thumbnailUrl }} style={styles.thumbnail} contentFit="cover" transition={200} />
         <DurationBadge seconds={video.durationSeconds} />
       </View>
       <View style={styles.meta}>
-        <ChannelAvatar uri={video.channelThumbnailUrl} />
+        <ChannelAvatar uri={video.channelThumbnailUrl} size={40} />
         <View style={styles.textColumn}>
-          <ThemedText numberOfLines={2} style={styles.title}>
+          <ThemedText type="subtitle" numberOfLines={2} style={styles.title}>
             {video.title}
           </ThemedText>
-          <ThemedText type="caption" color="textSecondary" numberOfLines={1}>
-            {video.channelName} • {formatRelativeTime(video.publishedAt)}
+          <ThemedText type="caption" color="textSecondary" numberOfLines={1} style={styles.metaLine}>
+            {video.channelName} · {formatRelativeTime(video.publishedAt)}
           </ThemedText>
         </View>
       </View>
@@ -37,10 +41,10 @@ export function VideoCard({ video, onPress }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: Spacing.four,
+    marginBottom: Spacing.five,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.75,
   },
   thumbnailWrapper: {
     width: '100%',
@@ -55,14 +59,17 @@ const styles = StyleSheet.create({
   },
   meta: {
     flexDirection: 'row',
-    gap: Spacing.two,
-    marginTop: Spacing.two,
+    gap: Spacing.three,
+    marginTop: Spacing.three,
   },
   textColumn: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   title: {
-    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  metaLine: {
+    letterSpacing: 0.1,
   },
 });

@@ -11,7 +11,8 @@ export function ChannelAvatar({ uri, size = 36 }: Props) {
       source={{ uri }}
       style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
       contentFit="cover"
-      transition={150}
+      transition={200}
+      accessible={false}
     />
   );
 }

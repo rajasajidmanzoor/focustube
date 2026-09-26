@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { markWatchCompleted, recordWatchStart, updateWatchProgress } from '@/services/database';
 import type { Video } from '@/types';
@@ -12,6 +12,15 @@ const PROGRESS_WRITE_INTERVAL_MS = 5000;
 export function useWatchProgress(video: Video | null) {
   const hasStartedRef = useRef(false);
   const lastWriteRef = useRef(0);
+
+  // Callers that keep a single hook instance alive across several videos (e.g. the
+  // Shorts feed swapping which video is "active") need these per-video trackers to
+  // reset whenever the video itself changes — otherwise a later video would never
+  // get its own recordWatchStart call.
+  useEffect(() => {
+    hasStartedRef.current = false;
+    lastWriteRef.current = 0;
+  }, [video?.id]);
 
   const handleStateChange = useCallback(
     (state: YouTubePlayerState) => {

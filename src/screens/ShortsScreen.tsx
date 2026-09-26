@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, type LayoutChangeEvent, StyleSheet, type ViewToken } from 'react-native';
 
@@ -7,9 +7,10 @@ import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { LoadingState } from '@/components/loading-state';
 import { ShortCard } from '@/components/short-card';
+import { ShortCardSkeleton } from '@/components/short-card-skeleton';
 import { ShortsLimitCard } from '@/components/shorts-limit-card';
 import { ThemedView } from '@/components/themed-view';
-import { useSettings, useShortsFeed } from '@/hooks';
+import { useSettings, useShortsFeed, useWatchProgress } from '@/hooks';
 import type { Video } from '@/types';
 
 function openVideo(video: Video) {
@@ -27,6 +28,17 @@ export function ShortsScreen() {
   // "Continue Anyway" lifts the cap for the rest of this Shorts tab visit — resets
   // (a fresh session) whenever the screen remounts.
   const [overrideLimit, setOverrideLimit] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  // expo-router's tab screens stay mounted when you switch tabs, so without this the
+  // active Short's player would keep playing (and making sound) in the background —
+  // only treat a card as "active" while this tab itself is actually on screen.
+  const [isFocused, setIsFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, []),
+  );
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     setContainerHeight(event.nativeEvent.layout.height);
@@ -60,12 +72,17 @@ export function ShortsScreen() {
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const centerIndex = viewableItems[0]?.index;
     if (centerIndex == null) return;
+    setActiveIndex(centerIndex);
     const currentItems = listDataRef.current;
     for (const neighborIndex of [centerIndex - 1, centerIndex + 1]) {
       const item = currentItems[neighborIndex];
       if (item?.kind === 'video') void Image.prefetch(item.video.thumbnailUrl);
     }
   }, []);
+
+  const activeItem = listData[activeIndex];
+  const activeVideo = activeItem?.kind === 'video' ? activeItem.video : null;
+  const { handleStateChange, handleProgress } = useWatchProgress(activeVideo);
 
   const handleBackToVideos = useCallback(() => router.push('/'), []);
   const handleContinueAnyway = useCallback(() => setOverrideLimit(true), []);
@@ -84,7 +101,8 @@ export function ShortsScreen() {
 
   return (
     <ThemedView style={styles.container} onLayout={onLayout}>
-      {state.status === 'loading' && <LoadingState label="Loading Shorts…" />}
+      {state.status === 'loading' &&
+        (containerHeight > 0 ? <ShortCardSkeleton height={containerHeight} /> : <LoadingState label="Loading Shorts…" />)}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={refetch} />}
 
       {state.status === 'success' && videos.length === 0 && !hasChannels && (
@@ -111,7 +129,7 @@ export function ShortsScreen() {
         <FlatList
           data={listData}
           keyExtractor={(item) => (item.kind === 'limit' ? 'limit-sentinel' : item.video.id)}
-          renderItem={({ item }) =>
+          renderItem={({ item, index }) =>
             item.kind === 'limit' ? (
               <ShortsLimitCard
                 height={containerHeight}
@@ -119,7 +137,14 @@ export function ShortsScreen() {
                 onContinueAnyway={handleContinueAnyway}
               />
             ) : (
-              <ShortCard video={item.video} height={containerHeight} onPress={openVideo} />
+              <ShortCard
+                video={item.video}
+                height={containerHeight}
+                onPress={openVideo}
+                isActive={index === activeIndex && isFocused}
+                onStateChange={handleStateChange}
+                onProgress={handleProgress}
+              />
             )
           }
           pagingEnabled

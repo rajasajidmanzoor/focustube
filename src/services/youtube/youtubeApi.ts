@@ -4,9 +4,10 @@ import type { YouTubeApiErrorResponse, YouTubeThumbnails } from '@/types';
 export type YouTubeApiErrorKind = 'config' | 'network' | 'quota' | 'not_found' | 'http' | 'malformed_response';
 
 /** Every failure from the YouTube service layer surfaces as this, so callers (hooks/
- * stores/UI) can branch on `kind` instead of parsing message strings. Messages are
- * always safe to show directly to the user — never include the API key or raw
- * request URL (see `youtubeGet` below). */
+ * stores/UI) can branch on `kind` instead of parsing message strings. `message` is
+ * always a string we wrote ourselves — this file never puts the API key, a raw
+ * request URL, or Google's own free-text error body into it, so any caller can show
+ * `message` directly in the UI without a second sanitization pass. */
 export class YouTubeApiError extends Error {
   readonly kind: YouTubeApiErrorKind;
   readonly status?: number;
@@ -39,15 +40,17 @@ export function isYouTubeApiConfigured(): boolean {
 
 const QUOTA_REASONS = new Set(['quotaExceeded', 'dailyLimitExceeded', 'rateLimitExceeded', 'userRateLimitExceeded']);
 
-async function parseErrorResponse(response: Response): Promise<{ message: string; reason?: string }> {
+/** Only extracts the `reason`/`status` code from the error body — deliberately never
+ * returns Google's free-text `error.message`. That text is meant for developers
+ * reading Google's own docs, not guaranteed safe to show end users, and callers of
+ * `youtubeGet` must never forward arbitrary upstream text into the UI (see
+ * SECURITY.md "API errors"). */
+async function parseErrorReason(response: Response): Promise<string | undefined> {
   try {
     const body = (await response.json()) as YouTubeApiErrorResponse;
-    return {
-      message: body.error?.message ?? response.statusText,
-      reason: body.error?.errors?.[0]?.reason ?? body.error?.status,
-    };
+    return body.error?.errors?.[0]?.reason ?? body.error?.status;
   } catch {
-    return { message: response.statusText || `HTTP ${response.status}` };
+    return undefined;
   }
 }
 
@@ -71,7 +74,7 @@ export async function youtubeGet<T>(path: string, params: Record<string, string>
   }
 
   if (!response.ok) {
-    const { message, reason } = await parseErrorResponse(response);
+    const reason = await parseErrorReason(response);
 
     if (response.status === 403 && reason && QUOTA_REASONS.has(reason)) {
       throw new YouTubeApiError(
@@ -81,9 +84,11 @@ export async function youtubeGet<T>(path: string, params: Record<string, string>
       );
     }
     if (response.status === 404) {
-      throw new YouTubeApiError('not_found', message, response.status);
+      throw new YouTubeApiError('not_found', 'The requested YouTube resource could not be found.', response.status);
     }
-    throw new YouTubeApiError('http', message, response.status);
+    // Every other non-OK status: a deliberately generic message. Never forward
+    // Google's raw error text here — see parseErrorReason's doc comment.
+    throw new YouTubeApiError('http', 'YouTube returned an error. Please try again.', response.status);
   }
 
   try {

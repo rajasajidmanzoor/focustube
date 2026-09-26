@@ -8,7 +8,7 @@ type Props = { label?: string };
 
 export function LoadingState({ label = 'Loading…' }: Props) {
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={styles.container} accessibilityRole="progressbar" accessibilityLabel={label}>
       <ActivityIndicator color={Colors.accent} size="large" />
       <ThemedText color="textSecondary">{label}</ThemedText>
     </ThemedView>

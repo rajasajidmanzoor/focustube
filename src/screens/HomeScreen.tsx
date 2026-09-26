@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
 import { EmptyState } from '@/components/empty-state';
@@ -8,10 +8,13 @@ import { LoadingState } from '@/components/loading-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { VideoCard } from '@/components/video-card';
+import { VideoCardSkeleton } from '@/components/video-card-skeleton';
 import { useHomeFeed } from '@/hooks';
 import { Colors, Spacing } from '@/theme';
 import type { Video } from '@/types';
 import { formatRelativeTime } from '@/utils';
+
+const SKELETON_CARDS = [0, 1, 2];
 
 function openVideo(video: Video) {
   router.push({ pathname: '/video/[videoId]', params: { videoId: video.id } });
@@ -24,7 +27,13 @@ export function HomeScreen() {
     <ThemedView style={styles.container}>
       <AppHeader title="FocusTube" />
 
-      {state.status === 'loading' && <LoadingState label="Loading your feed…" />}
+      {state.status === 'loading' && (
+        <View style={styles.list} accessibilityLabel="Loading your feed">
+          {SKELETON_CARDS.map((key) => (
+            <VideoCardSkeleton key={key} />
+          ))}
+        </View>
+      )}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={refetch} />}
 
       {state.status === 'success' && state.data.length === 0 && !hasChannels && (
@@ -74,10 +83,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   list: {
-    padding: Spacing.three,
+    padding: Spacing.four,
     paddingBottom: Spacing.six,
   },
   lastUpdated: {
-    marginBottom: Spacing.three,
+    marginBottom: Spacing.four,
   },
 });

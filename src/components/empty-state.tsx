@@ -16,7 +16,7 @@ type Props = {
 export function EmptyState({ icon, title, description, actionLabel, onAction }: Props) {
   return (
     <ThemedView style={styles.container}>
-      <Ionicons name={icon} size={40} color={Colors.textSecondary} />
+      <Ionicons name={icon} size={36} color={Colors.textSecondary} />
       <ThemedText type="subtitle" style={styles.centeredText}>
         {title}
       </ThemedText>
@@ -24,7 +24,11 @@ export function EmptyState({ icon, title, description, actionLabel, onAction }: 
         {description}
       </ThemedText>
       {actionLabel && onAction && (
-        <Pressable onPress={onAction} style={styles.button}>
+        <Pressable
+          onPress={onAction}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
           <ThemedText style={styles.buttonText}>{actionLabel}</ThemedText>
         </Pressable>
       )}
@@ -37,18 +41,23 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.two,
+    gap: Spacing.three,
     paddingHorizontal: Spacing.five,
   },
   centeredText: {
     textAlign: 'center',
   },
   button: {
-    marginTop: Spacing.three,
+    marginTop: Spacing.two,
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: Colors.accent,
     borderRadius: Radii.pill,
     paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Spacing.five,
+  },
+  pressed: {
+    opacity: 0.8,
   },
   buttonText: {
     fontWeight: '600',

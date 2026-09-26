@@ -13,9 +13,13 @@ type Props = {
 export function ErrorState({ message = 'Something went wrong.', onRetry }: Props) {
   return (
     <ThemedView style={styles.container}>
-      <Ionicons name="alert-circle-outline" size={40} color={Colors.error} />
+      <Ionicons name="alert-circle-outline" size={36} color={Colors.error} />
       <ThemedText style={styles.centeredText}>{message}</ThemedText>
-      <Pressable onPress={onRetry} style={styles.button}>
+      <Pressable
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel="Retry"
+        style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
         <ThemedText style={styles.buttonText}>Retry</ThemedText>
       </Pressable>
     </ThemedView>
@@ -27,18 +31,23 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.two,
+    gap: Spacing.three,
     paddingHorizontal: Spacing.five,
   },
   centeredText: {
     textAlign: 'center',
   },
   button: {
-    marginTop: Spacing.three,
+    marginTop: Spacing.two,
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: Colors.surfaceElevated,
     borderRadius: Radii.pill,
     paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Spacing.five,
+  },
+  pressed: {
+    opacity: 0.8,
   },
   buttonText: {
     fontWeight: '600',

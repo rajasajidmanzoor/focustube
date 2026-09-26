@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Alert, FlatList, StyleSheet } from 'react-native';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
 
 import { AddChannelModal } from '@/components/add-channel-modal';
 import { AppHeader } from '@/components/app-header';
 import { ChannelListItem } from '@/components/channel-list-item';
+import { ChannelListItemSkeleton } from '@/components/channel-list-item-skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { IconButton } from '@/components/icon-button';
-import { LoadingState } from '@/components/loading-state';
 import { ThemedView } from '@/components/themed-view';
 import { useChannels } from '@/hooks';
 import { Spacing } from '@/theme';
 import type { Channel } from '@/types';
+
+const SKELETON_ROWS = [0, 1, 2, 3];
 
 export function ChannelsScreen() {
   const { state, previewChannel, confirmChannel, removeChannel, refetch } = useChannels();
@@ -31,7 +33,13 @@ export function ChannelsScreen() {
         right={<IconButton name="add" accessibilityLabel="Add channel" onPress={() => setModalVisible(true)} />}
       />
 
-      {state.status === 'loading' && <LoadingState label="Loading channels…" />}
+      {state.status === 'loading' && (
+        <View style={styles.list}>
+          {SKELETON_ROWS.map((key) => (
+            <ChannelListItemSkeleton key={key} />
+          ))}
+        </View>
+      )}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={refetch} />}
       {state.status === 'success' && state.data.length === 0 && (
         <EmptyState
@@ -66,6 +74,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   list: {
+    padding: Spacing.three,
     paddingBottom: Spacing.six,
   },
 });

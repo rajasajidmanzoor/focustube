@@ -24,7 +24,7 @@ export function toFriendlyChannelError(error: unknown): string {
   }
   if (error instanceof YouTubeApiError) {
     if (error.kind === 'quota') return 'YouTube is temporarily unavailable. Please try again later.';
-    if (error.kind === 'not_found') return error.message;
+    if (error.kind === 'not_found') return error.message; // always our own text — see youtubeApi.ts
     if (error.kind === 'config') return 'FocusTube is not fully set up yet. Please try again later.';
     if (error.kind === 'network') return "Couldn't reach YouTube. Check your connection and try again.";
     return "Couldn't resolve that channel. Please try again.";

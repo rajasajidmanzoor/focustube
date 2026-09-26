@@ -100,12 +100,19 @@ export function AddChannelModal({ visible, onClose, previewChannel, confirmChann
                 </ThemedText>
               )}
               <View style={styles.actions}>
-                <Pressable onPress={handleClose} style={styles.secondaryButton} disabled={isResolving}>
+                <Pressable
+                  onPress={handleClose}
+                  disabled={isResolving}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel"
+                  style={styles.secondaryButton}>
                   <ThemedText color="textSecondary">Cancel</ThemedText>
                 </Pressable>
                 <Pressable
                   onPress={handleResolve}
                   disabled={!inputValue.trim() || isResolving}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add channel"
                   style={[styles.primaryButton, (!inputValue.trim() || isResolving) && styles.disabled]}>
                   {isResolving ? (
                     <ActivityIndicator color={Colors.text} size="small" />
@@ -136,12 +143,19 @@ export function AddChannelModal({ visible, onClose, previewChannel, confirmChann
                   </ThemedText>
                 )}
                 <View style={styles.actions}>
-                  <Pressable onPress={handleBack} style={styles.secondaryButton} disabled={step === 'saving'}>
+                  <Pressable
+                    onPress={handleBack}
+                    disabled={step === 'saving'}
+                    accessibilityRole="button"
+                    accessibilityLabel="Back"
+                    style={styles.secondaryButton}>
                     <ThemedText color="textSecondary">Back</ThemedText>
                   </Pressable>
                   <Pressable
                     onPress={handleConfirm}
                     disabled={step === 'saving'}
+                    accessibilityRole="button"
+                    accessibilityLabel="Confirm"
                     style={[styles.primaryButton, step === 'saving' && styles.disabled]}>
                     {step === 'saving' ? (
                       <ActivityIndicator color={Colors.text} size="small" />
@@ -203,6 +217,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.three,
   },
   secondaryButton: {
+    minHeight: 44,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     justifyContent: 'center',
@@ -210,6 +225,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: Colors.accent,
     borderRadius: Radii.pill,
+    minHeight: 44,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.four,
     justifyContent: 'center',

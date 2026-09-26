@@ -4,8 +4,10 @@ A personal-use, distraction-free YouTube viewer for Android. FocusTube only ever
 videos from YouTube channels you explicitly add to a local whitelist — no search, no
 recommendations, no comments, no "trending", nothing outside what you approved.
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for how the app is structured and
-[TODO.md](./TODO.md) for the V1 implementation plan/status.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for how the app is structured,
+[TODO.md](./TODO.md) for the V1 implementation plan/status,
+[SECURITY.md](./SECURITY.md) for the security model, and
+[BUILD.md](./BUILD.md) for building and installing an Android APK.
 
 ## Get started
 

@@ -26,8 +26,9 @@ export function IconButton({ name, onPress, size = 22, color = Colors.text, acce
 
 const styles = StyleSheet.create({
   button: {
-    width: 40,
-    height: 40,
+    // Android's Material touch-target minimum is 48dp.
+    width: 48,
+    height: 48,
     borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
