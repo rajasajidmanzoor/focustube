@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ChannelAvatar } from '@/components/channel-avatar';
 import { EmptyState } from '@/components/empty-state';
@@ -8,12 +8,22 @@ import { ErrorState } from '@/components/error-state';
 import { LoadingState } from '@/components/loading-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { VideoCard } from '@/components/video-card';
 import { YouTubePlayer, type YouTubePlayerState } from '@/components/youtube-player';
 import { useWatchProgress } from '@/hooks';
-import { getCachedVideoById } from '@/services/database';
+import { getCachedVideoById, listCachedFeed } from '@/services/database';
 import { Spacing } from '@/theme';
 import type { Video } from '@/types';
 import { formatRelativeTime } from '@/utils';
+
+// Never YouTube's own "up next"/recommendations — only long-form videos from the
+// user's own approved channels (the same pool Home shows), same as everywhere else
+// in the app that lists videos.
+const MORE_VIDEOS_LIMIT = 5;
+
+function openVideo(video: Video) {
+  router.push({ pathname: '/video/[videoId]', params: { videoId: video.id } });
+}
 
 type LookupState =
   | { status: 'loading' }
@@ -24,6 +34,24 @@ type LookupState =
 export function VideoPlayerScreen() {
   const { videoId } = useLocalSearchParams<{ videoId: string }>();
   const [lookup, setLookup] = useState<LookupState>({ status: 'loading' });
+  const [moreVideos, setMoreVideos] = useState<Video[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    listCachedFeed('long_form')
+      .then((videos) => {
+        if (cancelled) return;
+        setMoreVideos(videos.filter((candidate) => candidate.id !== videoId).slice(0, MORE_VIDEOS_LIMIT));
+      })
+      .catch(() => {
+        if (!cancelled) setMoreVideos([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
 
   // No synchronous setState here (safe to call directly from the mount effect) — the
   // initial `useState({ status: 'loading' })` above already covers the first render.
@@ -98,20 +126,33 @@ export function VideoPlayerScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <YouTubePlayer videoId={lookup.video.id} onStateChange={handleStateChange} onProgress={handleProgress} />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <YouTubePlayer videoId={lookup.video.id} onStateChange={handleStateChange} onProgress={handleProgress} />
 
-      <View style={styles.info}>
-        <ThemedText type="subtitle">{lookup.video.title}</ThemedText>
-        <View style={styles.channelRow}>
-          <ChannelAvatar uri={lookup.video.channelThumbnailUrl} size={40} />
-          <View>
-            <ThemedText>{lookup.video.channelName}</ThemedText>
-            <ThemedText type="caption" color="textSecondary">
-              {formatRelativeTime(lookup.video.publishedAt)}
-            </ThemedText>
+        <View style={styles.info}>
+          <ThemedText type="subtitle">{lookup.video.title}</ThemedText>
+          <View style={styles.channelRow}>
+            <ChannelAvatar uri={lookup.video.channelThumbnailUrl} size={40} />
+            <View>
+              <ThemedText>{lookup.video.channelName}</ThemedText>
+              <ThemedText type="caption" color="textSecondary">
+                {formatRelativeTime(lookup.video.publishedAt)}
+              </ThemedText>
+            </View>
           </View>
         </View>
-      </View>
+
+        {moreVideos.length > 0 && (
+          <View style={styles.moreSection}>
+            <ThemedText type="subtitle" style={styles.moreHeading}>
+              More from your channels
+            </ThemedText>
+            {moreVideos.map((moreVideo) => (
+              <VideoCard key={moreVideo.id} video={moreVideo} onPress={openVideo} />
+            ))}
+          </View>
+        )}
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -119,6 +160,9 @@ export function VideoPlayerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: Spacing.six,
   },
   info: {
     padding: Spacing.four,
@@ -128,5 +172,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  moreSection: {
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.two,
+  },
+  moreHeading: {
+    marginBottom: Spacing.four,
   },
 });

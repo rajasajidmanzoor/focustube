@@ -13,12 +13,17 @@ export function parseIso8601Duration(duration: string): number {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
-const SHORTS_MAX_DURATION_SECONDS = 60;
+// YouTube raised the Shorts length cap from 60s to 3 minutes in October 2024 — using
+// the old 60s cutoff here left longer Shorts misclassified as long-form, so they'd
+// leak into the Home feed instead of staying in Shorts. Keep this in sync if YouTube
+// changes the cap again.
+const SHORTS_MAX_DURATION_SECONDS = 180;
 
 /** The single place FocusTube's Shorts heuristic lives — the YouTube Data API has no
- * explicit "is this a Short" flag, so we treat duration <= 60s as a Short (matching
- * YouTube's own definition). Never duplicate this check elsewhere; always call this.
- * durationSeconds === 0 (e.g. an ongoing livestream) is deliberately excluded. */
+ * explicit "is this a Short" flag, so we treat duration <= 3 minutes as a Short
+ * (matching YouTube's own current definition). Never duplicate this check elsewhere;
+ * always call this. durationSeconds === 0 (e.g. an ongoing livestream) is
+ * deliberately excluded. */
 export function classifyShort(video: { durationSeconds: number }): boolean {
   return video.durationSeconds > 0 && video.durationSeconds <= SHORTS_MAX_DURATION_SECONDS;
 }
