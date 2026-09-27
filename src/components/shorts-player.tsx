@@ -132,11 +132,39 @@ export function ShortsPlayer({ videoId, isActive, onStateChange, onProgress }: P
     if (isReadyRef.current) applyActiveState(isActive);
   }, [isActive, applyActiveState]);
 
+  // If this card becomes active while it's already given up (a load timeout or a
+  // genuine WebView error that happened while it was still preloading off-screen),
+  // give it one fresh, fully-prioritized reload instead of showing a stale failure
+  // the user never actually watched happen — retrying is invisible to them either
+  // way. React's documented pattern for state that depends on a prop transition:
+  // compare against the previous value during render (not in an effect), and signal
+  // the actual reload() side effect (imperative, so it still belongs in an effect)
+  // via a counter rather than touching refs during render.
+  const [prevIsActive, setPrevIsActive] = useState(isActive);
+  const [recoveryNonce, setRecoveryNonce] = useState(0);
+  if (isActive !== prevIsActive) {
+    setPrevIsActive(isActive);
+    if (isActive && status === 'error') {
+      setStatus('loading');
+      setRecoveryNonce((nonce) => nonce + 1);
+    }
+  }
+
   useEffect(() => {
-    if (status !== 'loading') return;
+    if (recoveryNonce === 0) return;
+    isReadyRef.current = false;
+    webViewRef.current?.reload();
+  }, [recoveryNonce]);
+
+  // Only counts down while active: a preloading card sits off-screen and may
+  // legitimately take a while under the resource contention of several WebViews
+  // loading at once — that's invisible to the user until it becomes the one they're
+  // actually looking at, at which point it deserves a full, fair timeout window.
+  useEffect(() => {
+    if (status !== 'loading' || !isActive) return;
     const timer = setTimeout(() => setStatus('error'), LOAD_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [status]);
+  }, [status, isActive]);
 
   useEffect(() => {
     if (!isActive || status !== 'ready' || !onProgress) return;

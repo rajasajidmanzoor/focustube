@@ -21,7 +21,7 @@ const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 60 };
 // How many upcoming (and preceding) Shorts stay mounted — loading, or already
 // loaded and sitting paused/muted — so swiping to them is instant instead of
 // starting a fresh player load at that moment.
-const PRELOAD_AHEAD = 5;
+const PRELOAD_AHEAD = 3;
 const PRELOAD_BEHIND = 1;
 
 type ShortsListItem = { kind: 'video'; video: Video } | { kind: 'limit' };
