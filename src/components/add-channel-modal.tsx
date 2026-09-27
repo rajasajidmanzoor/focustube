@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ChannelAvatar } from '@/components/channel-avatar';
 import { ThemedText } from '@/components/themed-text';
@@ -74,7 +74,9 @@ export function AddChannelModal({ visible, onClose, previewChannel, confirmChann
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.backdrop}>
         <View style={styles.sheet}>
           {step === 'input' ? (
             <>
@@ -168,7 +170,7 @@ export function AddChannelModal({ visible, onClose, previewChannel, confirmChann
             )
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

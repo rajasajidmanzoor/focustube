@@ -2,12 +2,13 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
-import { useSettingsStore } from '@/store';
+import { seedDefaultChannelsIfNeeded, useSettingsStore } from '@/store';
 import { Colors } from '@/theme';
 
 export default function RootLayout() {
   useEffect(() => {
     void useSettingsStore.getState().hydrate();
+    void seedDefaultChannelsIfNeeded();
   }, []);
 
   return (

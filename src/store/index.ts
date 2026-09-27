@@ -1,4 +1,4 @@
-export { toFriendlyChannelError, useChannelsStore } from './channelsStore';
+export { seedDefaultChannelsIfNeeded, toFriendlyChannelError, useChannelsStore } from './channelsStore';
 export type { ResolvedChannel } from './channelsStore';
 export { useFeedStore } from './feedStore';
 export { useSettingsStore } from './settingsStore';

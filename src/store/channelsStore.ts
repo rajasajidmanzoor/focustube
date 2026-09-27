@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { getSetting, setSetting } from '@/services/database';
 import * as db from '@/services/database';
 import { resolveChannel, YouTubeApiError, type ResolvedChannel } from '@/services/youtube';
 import type { AsyncState, Channel } from '@/types';
@@ -7,6 +8,38 @@ import type { AsyncState, Channel } from '@/types';
 import { syncChannel } from './sync';
 
 export type { ResolvedChannel };
+
+const HAS_SEEDED_DEFAULT_CHANNELS_KEY = 'hasSeededDefaultChannels';
+// FocusTube ships with these two channels pre-approved so a fresh install isn't a
+// totally empty feed — same as any channel the user adds themselves: fully visible
+// in Channels, removable at any time, and never re-added once removed (the seed only
+// ever runs once, guarded by HAS_SEEDED_DEFAULT_CHANNELS_KEY below).
+const DEFAULT_CHANNEL_HANDLES = ['@GoogleDevelopers', '@rsajidmanzoor'];
+
+/** Adds FocusTube's pre-approved starter channels, but only the very first time the
+ * app ever runs — call once at startup (see src/app/_layout.tsx). Safe to call again
+ * later (e.g. a second install on the same cached settings db): it's a no-op once the
+ * flag is set, so a channel the user deliberately removed never comes back. */
+export async function seedDefaultChannelsIfNeeded(): Promise<void> {
+  const alreadySeeded = await getSetting(HAS_SEEDED_DEFAULT_CHANNELS_KEY, false);
+  if (alreadySeeded) return;
+
+  for (const handle of DEFAULT_CHANNEL_HANDLES) {
+    try {
+      const resolved = await resolveChannel(handle);
+      if (await db.isChannelAdded(resolved.id)) continue;
+
+      const saved = await db.addChannel(resolved);
+      await syncChannel(saved.id);
+    } catch {
+      // A starter channel failing to resolve/sync (no network on first launch, the
+      // handle changed, etc.) shouldn't block the app or the other starter channel —
+      // the user can always add channels manually regardless.
+    }
+  }
+
+  await setSetting(HAS_SEEDED_DEFAULT_CHANNELS_KEY, true);
+}
 
 class DuplicateChannelError extends Error {
   constructor() {
