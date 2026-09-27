@@ -2,8 +2,8 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ChannelAvatar } from '@/components/channel-avatar';
+import { ShortsPlayer, type ShortsPlayerState } from '@/components/shorts-player';
 import { ThemedText } from '@/components/themed-text';
-import { YouTubePlayer, type YouTubePlayerState } from '@/components/youtube-player';
 import { Colors, Spacing } from '@/theme';
 import type { Video } from '@/types';
 
@@ -11,11 +11,14 @@ type Props = {
   video: Video;
   height: number;
   onPress: (video: Video) => void;
-  /** Whether this card is the one currently centered on screen. Only the active
-   * card renders a live, autoplaying player — everything else stays a static
-   * thumbnail so we never run more than one WebView at once. */
+  /** Whether this card is the one currently centered on screen — playing, with
+   * sound, the one whose state/progress we forward to watch history. */
   isActive?: boolean;
-  onStateChange?: (state: YouTubePlayerState) => void;
+  /** Whether this card is within the swipe-ahead window: mounted and loading (or
+   * already loaded, paused and muted) so swiping to it is instant instead of
+   * starting a fresh WebView load at that moment. */
+  isPreloaded?: boolean;
+  onStateChange?: (state: ShortsPlayerState) => void;
   onProgress?: (currentTime: number, duration: number) => void;
 };
 
@@ -37,14 +40,30 @@ function ReadabilityScrim() {
 
 /** Full-screen, swipe-to-next card for the Shorts feed. No like/comment/share
  * affordances — FocusTube's own UI never surfaces those. */
-export function ShortCard({ video, height, onPress, isActive = false, onStateChange, onProgress }: Props) {
-  if (isActive) {
+export function ShortCard({
+  video,
+  height,
+  onPress,
+  isActive = false,
+  isPreloaded = false,
+  onStateChange,
+  onProgress,
+}: Props) {
+  if (isActive || isPreloaded) {
     // No Pressable/overlay here: YouTube's own controls (play/pause, volume, etc.)
     // must stay reachable and untouched, so nothing of ours sits on top of the
     // player — matches the same rule VideoPlayerScreen's player already follows.
+    // A preloaded (not-yet-active) card mounts its player early but stays paused
+    // and muted (ShortsPlayer enforces this itself) — nothing plays or makes sound
+    // until it actually becomes active.
     return (
       <View style={[styles.container, { height }]}>
-        <YouTubePlayer videoId={video.id} fill loop onStateChange={onStateChange} onProgress={onProgress} />
+        <ShortsPlayer
+          videoId={video.id}
+          isActive={isActive}
+          onStateChange={isActive ? onStateChange : undefined}
+          onProgress={isActive ? onProgress : undefined}
+        />
       </View>
     );
   }

@@ -13,31 +13,28 @@ const UNAVAILABLE_ERRORS = new Set(['video_not_found', 'embed_not_allowed', 'inv
 const LOAD_TIMEOUT_MS = 15000;
 const PROGRESS_POLL_INTERVAL_MS = 5000;
 
-// The hosted player page (react-native-youtube-iframe's iframe_v2.html) hardcodes its
-// video box to a 16:9 shape via a `padding-bottom: 56.25%` trick, so a vertical Shorts
-// card would otherwise get a small pillarboxed video instead of filling the screen.
-// This restyles that one box to fill whatever size we actually gave the WebView —
-// it doesn't touch YouTube's own iframe/controls, just the wrapper page's CSS.
-const FILL_CSS_JS = `
-(function () {
-  var style = document.createElement('style');
-  style.textContent = 'html,body{height:100%!important;margin:0!important}' +
-    '.container{height:100%!important;padding-bottom:0!important}' +
-    '.video{width:100%!important;height:100%!important}';
-  document.head.appendChild(style);
-  true;
-})();
-`;
+// The wrapper page react-native-youtube-iframe hosts the player on. Must match the
+// library's own default (we never pass baseUrlOverride).
+const PLAYER_HOST_URL = 'https://lonelycpp.github.io/react-native-youtube-iframe/iframe_v2.html';
+
+// The library's own navigation guard checks `mainDocumentURL`, which doesn't change
+// when the *nested* YouTube iframe navigates itself (e.g. its own fullscreen/expand
+// control driving `window.top.location` to a full youtube.com watch page) — so that
+// guard never fires for exactly the case that matters. This checks the real target
+// of top-frame navigations instead, and blocks anything that isn't our own wrapper
+// page, so the WebView can never replace our minimal player with YouTube's full site
+// UI (comments, likes, subscribe, related videos) — those must never appear in
+// FocusTube's own UI. Subframe navigations (the actual YouTube iframe loading) are
+// always allowed, since blocking those would break playback itself.
+function shouldAllowNavigation(request: { url: string; isTopFrame: boolean }): boolean {
+  if (!request.isTopFrame) return true;
+  return request.url.startsWith(PLAYER_HOST_URL);
+}
 
 type Props = {
   videoId: string;
   onStateChange?: (state: YouTubePlayerState) => void;
   onProgress?: (currentTime: number, duration: number) => void;
-  /** Fills the parent's measured size instead of a fixed 16:9 box — for the Shorts
-   * feed, where each card is already a fixed-size vertical slot. */
-  fill?: boolean;
-  /** Loops the single video instead of stopping at `onStateChange('ended')`. */
-  loop?: boolean;
 };
 
 /**
@@ -50,8 +47,12 @@ type Props = {
  * This never touches the player's DOM, CSS, or controls: everything the user sees
  * is YouTube's own unmodified UI, including its own error/unavailable screens. No
  * media is downloaded, extracted, or proxied.
+ *
+ * Used for the single-video screen only — the Shorts feed uses its own dedicated
+ * `ShortsPlayer`, which needs a fundamentally different playback model (autoplay,
+ * one-at-a-time active/paused control across a swipeable list).
  */
-export function YouTubePlayer({ videoId, onStateChange, onProgress, fill = false, loop = false }: Props) {
+export function YouTubePlayer({ videoId, onStateChange, onProgress }: Props) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [reloadKey, setReloadKey] = useState(0);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -99,10 +100,10 @@ export function YouTubePlayer({ videoId, onStateChange, onProgress, fill = false
   }, []);
 
   const playerWidth = size.width;
-  const playerHeight = fill ? size.height : (size.width * 9) / 16;
+  const playerHeight = (size.width * 9) / 16;
 
   return (
-    <View style={[styles.container, fill && styles.fill]} onLayout={handleLayout}>
+    <View style={styles.container} onLayout={handleLayout}>
       {status === 'error' ? (
         <ErrorState message="This video couldn't be played." onRetry={handleRetry} />
       ) : (
@@ -115,15 +116,12 @@ export function YouTubePlayer({ videoId, onStateChange, onProgress, fill = false
               width={playerWidth}
               height={playerHeight}
               play
-              forceAndroidAutoplay
-              playList={loop ? [videoId] : undefined}
-              initialPlayerParams={loop ? { loop: true } : undefined}
               onReady={handleReady}
               onError={handleError}
               onChangeState={handleChangeState}
               webViewProps={{
                 allowsInlineMediaPlayback: true,
-                injectedJavaScript: fill ? FILL_CSS_JS : undefined,
+                onShouldStartLoadWithRequest: shouldAllowNavigation,
               }}
             />
           )}
@@ -143,10 +141,6 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: Colors.background,
-  },
-  fill: {
-    flex: 1,
-    aspectRatio: undefined,
   },
   loadingOverlay: {
     backgroundColor: Colors.background,

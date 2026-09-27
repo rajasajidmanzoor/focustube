@@ -18,6 +18,11 @@ function openVideo(video: Video) {
 }
 
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 60 };
+// How many upcoming (and preceding) Shorts stay mounted — loading, or already
+// loaded and sitting paused/muted — so swiping to them is instant instead of
+// starting a fresh player load at that moment.
+const PRELOAD_AHEAD = 5;
+const PRELOAD_BEHIND = 1;
 
 type ShortsListItem = { kind: 'video'; video: Video } | { kind: 'limit' };
 
@@ -61,19 +66,45 @@ export function ShortsScreen() {
     ];
   }, [videos, sessionLimit, overrideLimit]);
 
+  // Once the user has swiped through every Short, the feed loops back to the start
+  // instead of dead-ending — but never past the session-limit stop, which is a
+  // deliberate pause, not part of the feed. Implemented by appending one extra copy
+  // of the first Short at the end: landing on that copy snaps (invisibly, same
+  // video) back to the real first item, so the list itself never needs to be
+  // infinite.
+  const loopableListData = useMemo<ShortsListItem[]>(() => {
+    if (listData.length < 2) return listData;
+    if (listData[listData.length - 1]?.kind === 'limit') return listData;
+    return [...listData, listData[0]];
+  }, [listData]);
+  const isLooped = loopableListData.length > listData.length;
+
+  const flatListRef = useRef<FlatList<ShortsListItem>>(null);
+
   // Preloads the thumbnail immediately before/after the current Short so swiping
   // forward or back stays smooth — metadata itself is already all in memory (the
   // whole synced feed loads at once from SQLite, no per-item network fetch needed).
-  const listDataRef = useRef<ShortsListItem[]>([]);
+  // Kept in refs (not deps) because FlatList doesn't support onViewableItemsChanged
+  // changing identity across renders.
+  const loopableListDataRef = useRef<ShortsListItem[]>([]);
+  const isLoopedRef = useRef(false);
   useEffect(() => {
-    listDataRef.current = listData;
-  }, [listData]);
+    loopableListDataRef.current = loopableListData;
+    isLoopedRef.current = isLooped;
+  }, [loopableListData, isLooped]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const centerIndex = viewableItems[0]?.index;
     if (centerIndex == null) return;
+    const currentItems = loopableListDataRef.current;
+
+    if (isLoopedRef.current && centerIndex === currentItems.length - 1) {
+      setActiveIndex(0);
+      requestAnimationFrame(() => flatListRef.current?.scrollToIndex({ index: 0, animated: false }));
+      return;
+    }
+
     setActiveIndex(centerIndex);
-    const currentItems = listDataRef.current;
     for (const neighborIndex of [centerIndex - 1, centerIndex + 1]) {
       const item = currentItems[neighborIndex];
       if (item?.kind === 'video') void Image.prefetch(item.video.thumbnailUrl);
@@ -125,10 +156,14 @@ export function ShortsScreen() {
         />
       )}
 
-      {state.status === 'success' && listData.length > 0 && containerHeight > 0 && (
+      {state.status === 'success' && loopableListData.length > 0 && containerHeight > 0 && (
         <FlatList
-          data={listData}
-          keyExtractor={(item) => (item.kind === 'limit' ? 'limit-sentinel' : item.video.id)}
+          ref={flatListRef}
+          data={loopableListData}
+          keyExtractor={(item, index) => {
+            if (item.kind === 'limit') return 'limit-sentinel';
+            return isLooped && index === loopableListData.length - 1 ? `${item.video.id}-loop` : item.video.id;
+          }}
           renderItem={({ item, index }) =>
             item.kind === 'limit' ? (
               <ShortsLimitCard
@@ -142,6 +177,12 @@ export function ShortsScreen() {
                 height={containerHeight}
                 onPress={openVideo}
                 isActive={index === activeIndex && isFocused}
+                isPreloaded={
+                  isFocused &&
+                  index !== activeIndex &&
+                  index >= activeIndex - PRELOAD_BEHIND &&
+                  index <= activeIndex + PRELOAD_AHEAD
+                }
                 onStateChange={handleStateChange}
                 onProgress={handleProgress}
               />
